@@ -13,6 +13,7 @@
     "typecheck:web": "tsc -p tsconfig.web.json --noEmit",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "test": "vitest run",
+    "pack:portable": "electron-vite build && node scripts/pack-portable.mjs",
     "pack:dir": "electron-vite build && electron-builder --dir",
     "dist": "electron-vite build && electron-builder"
   },

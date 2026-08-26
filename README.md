@@ -16,10 +16,22 @@ npm install
 npm run dev          # launch the app with hot reload
 npm test             # unit tests (STS token minting, …)
 npm run typecheck    # tsc for main + renderer
-npm run build        # bundle main + preload + renderer
-npm run pack:dir     # unpacked desktop build (no installer)
-npm run dist         # platform installer (nsis / dmg / AppImage)
+npm run build         # bundle main + preload + renderer
+npm run pack:portable # standalone Windows app → dist/KubeNinja-win-x64/KubeNinja.exe
+npm run dist          # platform installer (nsis / dmg / AppImage) — see note
 ```
+
+### Standalone executable (Windows)
+
+```bash
+npm run pack:portable
+```
+
+produces **`dist/KubeNinja-win-x64/KubeNinja.exe`** — a no-install, double-click app (the whole
+folder is portable). It bundles the main process and hand-assembles the Electron runtime, so it
+sidesteps electron-builder's signing-tool cache, which won't extract on Windows without the
+symbolic-link privilege. For the full `npm run dist` installers (nsis/dmg/AppImage), enable
+**Developer Mode** (or run elevated) so that cache can unpack.
 
 Requires Node 20+.
 

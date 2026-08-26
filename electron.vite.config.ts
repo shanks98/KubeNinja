@@ -4,8 +4,9 @@ import { resolve } from 'node:path';
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
-    build: { rollupOptions: { input: { index: resolve('src/main/index.ts') } } },
+    // Bundle all npm deps into the main entry so the packaged app needs no
+    // node_modules (node builtins stay external via Vite's SSR defaults).
+    build: { rollupOptions: { input: { index: resolve('src/main/index.ts') }, external: ['electron'] } },
   },
   preload: {
     plugins: [externalizeDepsPlugin()],
