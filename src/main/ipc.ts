@@ -4,6 +4,18 @@ import { listEksClusters, describeEksCluster } from './aws/eks';
 import { clusterStatus, listPods } from './kube/client';
 import { sessions } from './session';
 
+// A blank Session Token must be omitted entirely: AWS rejects an EMPTY
+// X-Amz-Security-Token ("security token ... is invalid"), and permanent (AKIA)
+// keys carry no token at all. Also trim stray whitespace from pasted values.
+function normCreds(c: AwsCreds): AwsCreds {
+  return {
+    accessKeyId: c.accessKeyId.trim(),
+    secretAccessKey: c.secretAccessKey.trim(),
+    sessionToken: c.sessionToken?.trim() ? c.sessionToken.trim() : undefined,
+    region: c.region,
+  };
+}
+
 // Wrap a handler so any throw becomes a typed { ok:false } result the renderer can show.
 function wrap<A extends unknown[], T>(fn: (...args: A) => Promise<T>) {
   return async (_e: unknown, ...args: A): Promise<Result<T>> => {
@@ -17,9 +29,10 @@ function wrap<A extends unknown[], T>(fn: (...args: A) => Promise<T>) {
 }
 
 export function registerIpc(): void {
-  ipcMain.handle('aws:listClusters', wrap(async (creds: AwsCreds) => listEksClusters(creds)));
+  ipcMain.handle('aws:listClusters', wrap(async (creds: AwsCreds) => listEksClusters(normCreds(creds))));
 
-  ipcMain.handle('aws:connect', wrap(async (creds: AwsCreds, name: string): Promise<ClusterSession> => {
+  ipcMain.handle('aws:connect', wrap(async (rawCreds: AwsCreds, name: string): Promise<ClusterSession> => {
+    const creds = normCreds(rawCreds);
     const { endpoint, caData, version } = await describeEksCluster(creds, name);
     const s = await sessions.create(creds, name, endpoint, caData, version);
     return { id: s.id, name: s.name, region: s.region, endpoint: s.endpoint, version: s.version, tokenExpiresAt: s.tokenExpiresAt };
