@@ -1,94 +1,123 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import type { ClusterStatus, ResourceCategory, ActionLogEntry } from '@shared/types';
 import { useApp } from '../store';
-import type { ClusterStatus, PodRow } from '@shared/types';
+import { useDescriptors } from '../kube/useDescriptors';
+import { useWatch } from '../kube/useWatch';
+import { ResourceTable } from '../components/ResourceTable';
+import { DetailsDrawer } from '../components/DetailsDrawer';
+import { Dock } from '../components/Dock';
+
+const CATEGORY_ORDER: ResourceCategory[] = ['Workloads', 'Config', 'Network', 'Storage', 'Access', 'Cluster'];
 
 export function ClusterShell() {
   const session = useApp((s) => s.session)!;
   const setSession = useApp((s) => s.setSession);
-  const [ns, setNs] = useState('default');
+  const activeResource = useApp((s) => s.activeResource);
+  const setActiveResource = useApp((s) => s.setActiveResource);
+  const namespace = useApp((s) => s.namespace);
+  const setNamespace = useApp((s) => s.setNamespace);
+
+  const descriptors = useDescriptors();
+  const descriptor = descriptors.find((d) => d.id === activeResource);
+  const [search, setSearch] = useState('');
+  const [showLog, setShowLog] = useState(false);
 
   const status = useQuery<ClusterStatus>({
     queryKey: ['status', session.id],
-    queryFn: async () => {
-      const r = await window.kn.cluster.status(session.id);
-      if (!r.ok) throw new Error(r.error);
-      return r.data;
-    },
+    queryFn: async () => { const r = await window.kn.cluster.status(session.id); if (!r.ok) throw new Error(r.error); return r.data; },
   });
 
-  const pods = useQuery<PodRow[]>({
-    queryKey: ['pods', session.id, ns],
-    queryFn: async () => {
-      const r = await window.kn.cluster.listPods(session.id, ns);
-      if (!r.ok) throw new Error(r.error);
-      return r.data;
-    },
-    enabled: !!ns,
-  });
+  const ns = descriptor?.namespaced ? (namespace || undefined) : undefined;
+  const { items, error, live } = useWatch(session.id, activeResource, ns);
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return q ? items.filter((o) => o.searchText().includes(q)) : items;
+  }, [items, search]);
 
-  const disconnect = async () => {
-    await window.kn.cluster.disconnect(session.id);
-    setSession(null);
-  };
+  const grouped = useMemo(() => CATEGORY_ORDER.map((cat) => ({ cat, items: descriptors.filter((d) => d.category === cat) })).filter((g) => g.items.length), [descriptors]);
 
-  const namespaces = status.data?.namespaces ?? ['default'];
+  const disconnect = async () => { await window.kn.cluster.disconnect(session.id); setSession(null); };
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div className="shell">
       {/* title bar */}
-      <div style={{ height: 40, display: 'flex', alignItems: 'center', gap: 12, padding: '0 14px', borderBottom: '1px solid var(--border)', background: 'linear-gradient(180deg,#0e1119,#0a0c11)' }}>
+      <div className="titlebar">
         <span style={{ fontSize: 18 }}>🥷</span>
         <b style={{ letterSpacing: '.03em' }}>Kube<span style={{ color: 'var(--jade)' }}>Ninja</span></b>
-        <span className="pill ok" style={{ marginLeft: 8 }}><span className="d" />Connected</span>
+        <span className="pill ok" style={{ marginLeft: 6 }}><span className="d" />Connected</span>
         <span className="mono muted" style={{ fontSize: 12 }}>{session.name} · {session.region} · v{session.version}</span>
-        <button className="btn sm" style={{ marginLeft: 'auto' }} onClick={disconnect}>Disconnect</button>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          <button className="btn sm" onClick={() => setShowLog(true)}>Action log</button>
+          <button className="btn sm" onClick={disconnect}>Disconnect</button>
+        </div>
       </div>
 
-      <div style={{ flex: 1, overflow: 'auto', padding: 18 }}>
-        {status.isError && <div className="alert" style={{ marginBottom: 14 }}>Cluster unreachable: {(status.error as Error).message}</div>}
-
-        {/* status strip */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: 18 }}>
-          {[['Kubernetes', status.data?.version ?? '…'], ['Nodes', status.data?.nodeCount ?? '…'], ['Namespaces', status.data?.namespaceCount ?? '…']].map(([k, v]) => (
-            <div key={k} className="card" style={{ flex: 1, padding: '13px 16px' }}>
-              <div className="lbl">{k}</div>
-              <div style={{ fontSize: 22, fontWeight: 700, marginTop: 3 }} className="mono">{String(v)}</div>
+      <div className="shell-main">
+        {/* sidebar */}
+        <div className="sidebar">
+          {grouped.map((g) => (
+            <div key={g.cat} className="side-group">
+              <div className="side-cat">{g.cat}</div>
+              {g.items.map((d) => (
+                <button key={d.id} className={'side-item' + (d.id === activeResource ? ' on' : '')} onClick={() => setActiveResource(d.id)}>{d.kind}s</button>
+              ))}
             </div>
           ))}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-          <h2 style={{ fontSize: 15 }}>Pods</h2>
-          <select className="input" style={{ width: 'auto', padding: '5px 9px' }} value={ns} onChange={(e) => setNs(e.target.value)}>
-            {namespaces.map((n) => <option key={n}>{n}</option>)}
-          </select>
-          <span className="muted" style={{ marginLeft: 'auto', fontSize: 12 }}>
-            {pods.isFetching ? 'loading…' : `${pods.data?.length ?? 0} pods`}
-          </span>
+        {/* content */}
+        <div className="content">
+          <div className="content-bar">
+            <h2 style={{ fontSize: 15 }}>{descriptor?.kind ?? activeResource}s</h2>
+            {descriptor?.namespaced && (
+              <select className="input sm" style={{ width: 'auto' }} value={namespace} onChange={(e) => setNamespace(e.target.value)}>
+                <option value="">All namespaces</option>
+                {(status.data?.namespaces ?? []).map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+            )}
+            <input className="input sm" placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: 240 }} />
+            <span className="muted mono" style={{ marginLeft: 'auto', fontSize: 12 }}>
+              {live ? `${filtered.length} shown` : 'connecting…'}{items.length !== filtered.length ? ` · ${items.length} total` : ''}
+            </span>
+          </div>
+
+          {error && <div className="alert" style={{ margin: '0 12px 10px' }}>{error}</div>}
+          {descriptor
+            ? <div className="table-scroll"><ResourceTable descriptor={descriptor} items={filtered} /></div>
+            : <div className="muted" style={{ padding: 20 }}>Loading resource kinds…</div>}
+
+          <Dock />
         </div>
 
-        {pods.isError && <div className="alert">{(pods.error as Error).message}</div>}
-        <table>
-          <thead><tr><th>Name</th><th>Ready</th><th>Phase</th><th>Restarts</th><th>Node</th><th>Age</th></tr></thead>
-          <tbody>
-            {(pods.data ?? []).map((p) => (
-              <tr key={p.name}>
-                <td className="mono" style={{ fontWeight: 600 }}>{p.name}</td>
-                <td className="mono">{p.ready}</td>
-                <td><span className={'pill ' + (p.phase === 'Running' ? 'ok' : p.phase === 'Pending' ? 'warn' : 'err')}><span className="d" />{p.phase}</span></td>
-                <td className="mono" style={{ color: p.restarts > 5 ? 'var(--danger)' : undefined, fontWeight: p.restarts > 5 ? 700 : 400 }}>{p.restarts}</td>
-                <td className="mono muted">{p.node}</td>
-                <td className="mono muted">{p.age}</td>
-              </tr>
-            ))}
-            {pods.data?.length === 0 && <tr><td colSpan={6} className="muted" style={{ textAlign: 'center', padding: 22 }}>No pods in {ns}.</td></tr>}
-          </tbody>
-        </table>
+        <DetailsDrawer />
+      </div>
 
-        <p className="muted" style={{ fontSize: 11.5, marginTop: 16 }}>
-          Slice 0 — connect + status + pods. Next: full resource browser, logs/live/trace, exec, actions.
-        </p>
+      {showLog && <ActionLogModal onClose={() => setShowLog(false)} cluster={session.name} />}
+    </div>
+  );
+}
+
+function ActionLogModal({ onClose }: { onClose: () => void; cluster: string }) {
+  const q = useQuery<ActionLogEntry[]>({
+    queryKey: ['actionLog'],
+    queryFn: async () => { const r = await window.kn.actionLog.list(); if (!r.ok) throw new Error(r.error); return r.data; },
+  });
+  return (
+    <div className="overlay show" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal" style={{ width: 'min(680px, 100%)' }} onMouseDown={(e) => e.stopPropagation()}>
+        <div className="mhead"><b>Action log</b><button className="btn sm" style={{ marginLeft: 'auto' }} onClick={onClose}>✕</button></div>
+        <div style={{ padding: '4px 6px', maxHeight: '60vh', overflow: 'auto' }}>
+          {q.data?.length === 0 && <div className="muted" style={{ padding: 18, textAlign: 'center' }}>No actions recorded yet.</div>}
+          {(q.data ?? []).map((e) => (
+            <div key={e.id} className="logrow">
+              <span className={'pill ' + (e.ok ? 'ok' : 'err')}><span className="d" />{e.verb}</span>
+              <span className="mono" style={{ fontSize: 12 }}>{e.kind}/{e.name}{e.namespace ? ` · ${e.namespace}` : ''}{e.detail ? ` · ${e.detail}` : ''}</span>
+              {e.error && <span className="muted" style={{ fontSize: 11, color: 'var(--danger)' }}>{e.error}</span>}
+              <span className="mono muted" style={{ marginLeft: 'auto', fontSize: 11 }}>{new Date(e.ts).toLocaleTimeString()}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

@@ -1,7 +1,15 @@
 import { ipcMain, app } from 'electron';
-import type { AwsCreds, ClusterSession, Result } from '@shared/types';
+import type { AwsCreds, ClusterSession, Result, WatchParams, LogParams, ExecParams } from '@shared/types';
 import { listEksClusters, describeEksCluster } from './aws/eks';
-import { clusterStatus, listPods } from './kube/client';
+import {
+  clusterStatus, listResource, getResource, applyYaml, deleteResource,
+  scaleWorkload, restartWorkload, cordonNode, drainNode, listEventsFor,
+  getLogsOnce, streamLogs,
+} from './kube/client';
+import { execInPod, execStream, execOnce, shQuote } from './kube/exec';
+import { WatchHandle } from './kube/watch';
+import { RESOURCES, resourceById } from './kube/resources';
+import { actionLog } from './actionLog';
 import { sessions } from './session';
 
 // A blank Session Token must be omitted entirely: AWS rejects an EMPTY
@@ -10,8 +18,6 @@ import { sessions } from './session';
 function normCreds(c: AwsCreds): AwsCreds {
   const accessKeyId = c.accessKeyId.trim();
   let sessionToken = c.sessionToken?.trim() || undefined;
-  // Permanent IAM keys (AKIA…) never carry a session token; a stray one here just
-  // yields "security token invalid". Only temporary keys (ASIA…) use one.
   if (accessKeyId.startsWith('AKIA')) sessionToken = undefined;
   return {
     accessKeyId,
@@ -34,7 +40,30 @@ function wrap<A extends unknown[], T>(fn: (...args: A) => Promise<T>) {
   };
 }
 
+async function need(sessionId: string) {
+  const s = await sessions.get(sessionId);
+  if (!s) throw new Error('session not found — reconnect');
+  return s;
+}
+
+// Run a mutating op, recording success/failure to the local action log either way.
+async function record<T>(
+  clusterName: string,
+  meta: { verb: string; kind: string; name: string; namespace?: string; detail?: string },
+  fn: () => Promise<T>,
+): Promise<T> {
+  try {
+    const out = await fn();
+    actionLog.record({ cluster: clusterName, ...meta, ok: true });
+    return out;
+  } catch (err) {
+    actionLog.record({ cluster: clusterName, ...meta, ok: false, error: (err as Error).message });
+    throw err;
+  }
+}
+
 export function registerIpc(): void {
+  // ── AWS / connect ────────────────────────────────────────────────
   ipcMain.handle('aws:listClusters', wrap(async (creds: AwsCreds) => listEksClusters(normCreds(creds))));
 
   ipcMain.handle('aws:connect', wrap(async (rawCreds: AwsCreds, name: string): Promise<ClusterSession> => {
@@ -44,22 +73,124 @@ export function registerIpc(): void {
     return { id: s.id, name: s.name, region: s.region, endpoint: s.endpoint, version: s.version, tokenExpiresAt: s.tokenExpiresAt };
   }));
 
-  ipcMain.handle('cluster:status', wrap(async (id: string) => {
-    const s = await sessions.get(id);
-    if (!s) throw new Error('session not found — reconnect');
-    return clusterStatus(s.kc);
+  ipcMain.handle('cluster:status', wrap(async (id: string) => clusterStatus((await need(id)).kc)));
+  ipcMain.handle('cluster:disconnect', wrap(async (id: string) => { sessions.remove(id); return null; }));
+
+  // ── Resource browser (generic CRUD) ──────────────────────────────
+  ipcMain.handle('kube:descriptors', async () => RESOURCES);
+
+  ipcMain.handle('kube:list', wrap(async (id: string, resourceId: string, namespace?: string) =>
+    listResource((await need(id)).kc, resourceById(resourceId), namespace)));
+
+  ipcMain.handle('kube:get', wrap(async (id: string, resourceId: string, namespace: string | undefined, name: string) =>
+    getResource((await need(id)).kc, resourceById(resourceId), namespace, name)));
+
+  ipcMain.handle('kube:events', wrap(async (id: string, namespace: string | undefined, uid: string) =>
+    listEventsFor((await need(id)).kc, namespace, uid)));
+
+  // ── Mutations (each writes the action log) ───────────────────────
+  ipcMain.handle('kube:apply', wrap(async (id: string, yaml: string) => {
+    const s = await need(id);
+    return record(s.name, { verb: 'apply', kind: 'YAML', name: '(edit)' }, () => applyYaml(s.kc, yaml));
   }));
 
-  ipcMain.handle('cluster:listPods', wrap(async (id: string, namespace: string) => {
-    const s = await sessions.get(id);
-    if (!s) throw new Error('session not found — reconnect');
-    return listPods(s.kc, namespace);
-  }));
-
-  ipcMain.handle('cluster:disconnect', wrap(async (id: string) => {
-    sessions.remove(id);
+  ipcMain.handle('kube:remove', wrap(async (id: string, resourceId: string, namespace: string | undefined, name: string, force?: boolean) => {
+    const s = await need(id); const r = resourceById(resourceId);
+    await record(s.name, { verb: 'delete', kind: r.kind, name, namespace, detail: force ? 'force' : undefined },
+      () => deleteResource(s.kc, r, namespace, name, force));
     return null;
   }));
+
+  ipcMain.handle('kube:scale', wrap(async (id: string, resourceId: string, namespace: string, name: string, replicas: number) => {
+    const s = await need(id); const r = resourceById(resourceId);
+    await record(s.name, { verb: 'scale', kind: r.kind, name, namespace, detail: `replicas=${replicas}` },
+      () => scaleWorkload(s.kc, r, namespace, name, replicas));
+    return null;
+  }));
+
+  ipcMain.handle('kube:restart', wrap(async (id: string, resourceId: string, namespace: string, name: string) => {
+    const s = await need(id); const r = resourceById(resourceId);
+    await record(s.name, { verb: 'restart', kind: r.kind, name, namespace }, () => restartWorkload(s.kc, r, namespace, name));
+    return null;
+  }));
+
+  ipcMain.handle('kube:cordon', wrap(async (id: string, name: string, on: boolean) => {
+    const s = await need(id);
+    await record(s.name, { verb: on ? 'cordon' : 'uncordon', kind: 'Node', name }, () => cordonNode(s.kc, name, on));
+    return null;
+  }));
+
+  ipcMain.handle('kube:drain', wrap(async (id: string, name: string) => {
+    const s = await need(id);
+    return record(s.name, { verb: 'drain', kind: 'Node', name }, () => drainNode(s.kc, name));
+  }));
+
+  ipcMain.handle('kube:execOnce', wrap(async (id: string, params: ExecParams) => {
+    const s = await need(id);
+    return execOnce(s.kc, { namespace: params.namespace, pod: params.pod, container: params.container, command: params.command ?? [] });
+  }));
+
+  ipcMain.handle('actionLog:list', wrap(async () => actionLog.list()));
+
+  // ── Live watches (streaming) ─────────────────────────────────────
+  const watches = new Map<string, WatchHandle>();
+  ipcMain.handle('kube:watch:start', async (e, id: string, params: WatchParams) => {
+    const r = resourceById(params.resourceId);
+    const chan = `kube:watch:${id}`;
+    const h = new WatchHandle(
+      () => sessions.get(params.sessionId).then((s) => s?.kc),
+      r, params.namespace,
+      (ev) => { if (!e.sender.isDestroyed()) e.sender.send(chan, ev); },
+    );
+    watches.set(id, h);
+    h.start();
+  });
+  ipcMain.handle('kube:watch:stop', (_e, id: string) => { watches.get(id)?.stop(); watches.delete(id); });
+
+  // ── Logs (streaming follow, or tail -F a file for Live Logs) ──────
+  const logStreams = new Map<string, { close(): void }>();
+  ipcMain.handle('logs:download', wrap(async (id: string, namespace: string, pod: string, container?: string) =>
+    getLogsOnce((await need(id)).kc, namespace, pod, container)));
+
+  ipcMain.handle('logs:start', async (e, id: string, params: LogParams) => {
+    const chan = `logs:${id}`;
+    const send = (chunk: string) => { if (!e.sender.isDestroyed()) e.sender.send(chan, { chunk }); };
+    try {
+      const s = await need(params.sessionId);
+      if (params.filePath) {
+        const cmd = ['sh', '-c', `tail -F -n ${params.tailLines ?? 200} ${shQuote(params.filePath)}`];
+        logStreams.set(id, await execStream(s.kc, { namespace: params.namespace, pod: params.pod, container: params.container, command: cmd }, send));
+      } else {
+        const ctrl = await streamLogs(s.kc, params, send);
+        logStreams.set(id, { close: () => ctrl.abort() });
+      }
+    } catch (err) {
+      if (!e.sender.isDestroyed()) e.sender.send(chan, { error: (err as Error).message });
+    }
+  });
+  ipcMain.handle('logs:stop', (_e, id: string) => { logStreams.get(id)?.close(); logStreams.delete(id); });
+
+  // ── Interactive exec (streaming, bidirectional) ──────────────────
+  const execs = new Map<string, Awaited<ReturnType<typeof execInPod>>>();
+  ipcMain.handle('exec:start', async (e, id: string, params: ExecParams) => {
+    const chan = `exec:${id}`;
+    const send = (m: Record<string, unknown>) => { if (!e.sender.isDestroyed()) e.sender.send(chan, m); };
+    try {
+      const s = await need(params.sessionId);
+      const sess = await execInPod(
+        s.kc, params,
+        (t) => send({ data: t }),
+        (st) => { if (st?.status === 'Failure' && st.message) send({ data: `\r\n[kubeninja] ${st.message}\r\n` }); send({ closed: true }); },
+      );
+      execs.set(id, sess);
+    } catch (err) {
+      send({ data: `\r\n[kubeninja] exec failed: ${(err as Error).message}\r\n` });
+      send({ closed: true });
+    }
+  });
+  ipcMain.handle('exec:stdin', (_e, id: string, data: string) => execs.get(id)?.write(data));
+  ipcMain.handle('exec:resize', (_e, id: string, cols: number, rows: number) => execs.get(id)?.resize(cols, rows));
+  ipcMain.handle('exec:stop', (_e, id: string) => { execs.get(id)?.close(); execs.delete(id); });
 
   ipcMain.handle('app:version', async () => app.getVersion());
 }

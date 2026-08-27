@@ -12,13 +12,17 @@ Each slice is independently runnable and verifiable. Build order:
       shell (status strip + namespace picker + pods table).
 - [ ] Verify: `npm test`, `npm run typecheck`, `npm run build` green. (GUI run needs a display.)
 
-## Slice 1 — Core IDE
-- Resource browser: KubeObject base + per-kind subclasses (curated ~25) + CRD discovery; per-kind
-  columns; namespace scope; **live watches** streamed over IPC.
-- Details drawer: Overview (health), YAML (CodeMirror view/edit/apply), Events.
-- Pod **Logs** (follow/search), **Live Logs** (tail on-disk file in container), **Trace** (log4j
-  level change + auto-revert, flag-gated), **exec** terminal (xterm over client-node Exec).
-- Workload actions: restart / scale / cordon / drain / delete / reveal — each writes the action log.
+## Slice 1 — Core IDE  ✅
+- [x] Resource browser: `KubeObject` wrapper + per-kind column registry (curated ~20 kinds);
+      per-kind columns; namespace scope; **live watches** streamed over IPC (uid-keyed, timer-batched).
+- [x] Details drawer: Overview (metadata/labels/owner/conditions), YAML (CodeMirror 6 view/edit/apply
+      via server replace), Events.
+- [x] Pod **Logs** (real follow stream + search/download), **Live Logs** (`tail -F` a file via exec),
+      **Trace** (JVM actuator log-level change + auto-revert, experimental), **exec** terminal
+      (xterm over client-node `Exec`, with resize).
+- [x] Workload actions: restart / scale / cordon / drain / delete — each writes the action log.
+- [x] Verify: `npm test` (16), `npm run typecheck`, `npm run build` green; UI driven through a mock
+      IPC bridge (table/drawer/YAML/dock/exec/trace/action-log). Live cluster run pending a real EKS target.
 
 ## Slice 2 — Investigation Cases
 - SQLite (`better-sqlite3`) store: cases, findings, comments, evidence-meta, `action_log`.
