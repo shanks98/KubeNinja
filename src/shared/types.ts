@@ -6,6 +6,8 @@ export interface AwsCreds {
   secretAccessKey: string;
   sessionToken?: string;
   region: string;
+  /** Override the AWS endpoint (e.g. http://localhost:4566 for LocalStack / MiniStack). */
+  endpoint?: string;
 }
 
 export interface EksClusterSummary {

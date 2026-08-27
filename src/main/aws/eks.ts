@@ -4,6 +4,7 @@ import type { AwsCreds, EksClusterSummary } from '@shared/types';
 function client(creds: AwsCreds): EKSClient {
   return new EKSClient({
     region: creds.region,
+    ...(creds.endpoint ? { endpoint: creds.endpoint } : {}),
     credentials: {
       accessKeyId: creds.accessKeyId,
       secretAccessKey: creds.secretAccessKey,

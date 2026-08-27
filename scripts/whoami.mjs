@@ -1,9 +1,11 @@
 // Credential smoke-test — uses the SAME AWS SDK path as KubeNinja's Connect flow.
-// Run:  node scripts/whoami.mjs [region]
-// Reads AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_SESSION_TOKEN from the env.
+// Run:  node scripts/whoami.mjs [region] [endpoint]
+// Env:  AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_SESSION_TOKEN / AWS_ENDPOINT_URL
+//   e.g. LocalStack / MiniStack:  AWS_ENDPOINT_URL=http://localhost:4566
 import { EKSClient, ListClustersCommand } from '@aws-sdk/client-eks';
 
 const region = (process.env.AWS_REGION || process.argv[2] || 'us-east-1').trim();
+const endpoint = (process.env.AWS_ENDPOINT_URL || process.argv[3] || '').trim() || undefined;
 const accessKeyId = (process.env.AWS_ACCESS_KEY_ID || '').trim();
 const secretAccessKey = (process.env.AWS_SECRET_ACCESS_KEY || '').trim();
 let sessionToken = (process.env.AWS_SESSION_TOKEN || '').trim() || undefined;
@@ -15,9 +17,9 @@ if (!accessKeyId || !secretAccessKey) {
   console.log('Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in the env first.');
   process.exit(1);
 }
-console.log(`Testing ${accessKeyId.slice(0, 8)}…  region=${region}  sessionToken=${sessionToken ? 'yes' : 'none'}\n`);
+console.log(`Testing ${accessKeyId.slice(0, 8)}…  region=${region}  endpoint=${endpoint || 'real AWS'}  sessionToken=${sessionToken ? 'yes' : 'none'}\n`);
 
-const eks = new EKSClient({ region, credentials: { accessKeyId, secretAccessKey, sessionToken } });
+const eks = new EKSClient({ region, ...(endpoint ? { endpoint } : {}), credentials: { accessKeyId, secretAccessKey, sessionToken } });
 try {
   const r = await eks.send(new ListClustersCommand({}));
   console.log('✓ CREDENTIALS ARE VALID.');

@@ -13,7 +13,13 @@ function normCreds(c: AwsCreds): AwsCreds {
   // Permanent IAM keys (AKIA…) never carry a session token; a stray one here just
   // yields "security token invalid". Only temporary keys (ASIA…) use one.
   if (accessKeyId.startsWith('AKIA')) sessionToken = undefined;
-  return { accessKeyId, secretAccessKey: c.secretAccessKey.trim(), sessionToken, region: c.region };
+  return {
+    accessKeyId,
+    secretAccessKey: c.secretAccessKey.trim(),
+    sessionToken,
+    region: c.region,
+    endpoint: c.endpoint?.trim() || undefined,
+  };
 }
 
 // Wrap a handler so any throw becomes a typed { ok:false } result the renderer can show.

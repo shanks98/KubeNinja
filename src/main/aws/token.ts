@@ -17,7 +17,20 @@ function base64UrlNoPad(s: string): string {
  * `k8s-aws-v1.<base64url(url)>`. Purely in-memory; the token is short-lived.
  */
 export async function eksBearerToken(creds: AwsCreds, clusterName: string): Promise<{ token: string; expiresAt: number }> {
-  const host = `sts.${creds.region}.amazonaws.com`;
+  // Real AWS uses regional STS; a custom endpoint (LocalStack / MiniStack) fronts
+  // STS at its own host, and the cluster's authenticator validates the token
+  // against that same host, so the presigned URL must point there.
+  let protocol = 'https:';
+  let hostname = `sts.${creds.region}.amazonaws.com`;
+  let port: number | undefined;
+  if (creds.endpoint) {
+    const u = new URL(creds.endpoint);
+    protocol = u.protocol;
+    hostname = u.hostname;
+    port = u.port ? Number(u.port) : undefined;
+  }
+  const host = port ? `${hostname}:${port}` : hostname;
+
   const signer = new SignatureV4({
     service: 'sts',
     region: creds.region,
@@ -32,8 +45,9 @@ export async function eksBearerToken(creds: AwsCreds, clusterName: string): Prom
 
   const request = new HttpRequest({
     method: 'GET',
-    protocol: 'https:',
-    hostname: host,
+    protocol,
+    hostname,
+    ...(port ? { port } : {}),
     path: '/',
     query: { Action: 'GetCallerIdentity', Version: '2011-06-15' },
     headers: { host, [CLUSTER_HEADER]: clusterName },
@@ -49,7 +63,7 @@ export async function eksBearerToken(creds: AwsCreds, clusterName: string): Prom
   const qs = Object.entries(presigned.query ?? {})
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
     .join('&');
-  const url = `https://${presigned.hostname}${presigned.path}?${qs}`;
+  const url = `${protocol}//${host}${presigned.path}?${qs}`;
 
   return {
     token: 'k8s-aws-v1.' + base64UrlNoPad(url),
