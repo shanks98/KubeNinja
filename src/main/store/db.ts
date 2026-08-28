@@ -1,7 +1,7 @@
 import { app } from 'electron';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
-import type { Case, Finding, Comment, Evidence, CaseEvent, ActionLogEntry } from '@shared/types';
+import type { Case, Finding, Comment, Evidence, CaseEvent, ActionLogEntry, ClusterProfile } from '@shared/types';
 
 export interface DbShape {
   cases: Case[];
@@ -10,9 +10,10 @@ export interface DbShape {
   evidence: Evidence[];
   events: CaseEvent[];
   actionLog: ActionLogEntry[];
+  clusters: ClusterProfile[];
 }
 
-const EMPTY: DbShape = { cases: [], findings: [], comments: [], evidence: [], events: [], actionLog: [] };
+const EMPTY: DbShape = { cases: [], findings: [], comments: [], evidence: [], events: [], actionLog: [], clusters: [] };
 
 /**
  * A tiny JSON-file store under userData — the single-user, zero-native-dependency

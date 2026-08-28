@@ -15,6 +15,12 @@ import { friendlyError } from './kube/errors';
 import { RESOURCES, resourceById } from './kube/resources';
 import { actionLog } from './actionLog';
 import { sessions } from './session';
+import { clusterProfiles } from './store/clusters';
+
+// Project a live session down to the renderer-safe shape (no creds/token/kc).
+function sess(s: { id: string; name: string; region: string; endpoint: string; version: string; tokenExpiresAt: number }): ClusterSession {
+  return { id: s.id, name: s.name, region: s.region, endpoint: s.endpoint, version: s.version, tokenExpiresAt: s.tokenExpiresAt };
+}
 
 // A blank Session Token must be omitted entirely: AWS rejects an EMPTY
 // X-Amz-Security-Token ("security token ... is invalid"), and permanent (AKIA)
@@ -74,11 +80,28 @@ export function registerIpc(): void {
     const creds = normCreds(rawCreds);
     const { endpoint, caData, version } = await describeEksCluster(creds, name);
     const s = await sessions.create(creds, name, endpoint, caData, version);
-    return { id: s.id, name: s.name, region: s.region, endpoint: s.endpoint, version: s.version, tokenExpiresAt: s.tokenExpiresAt };
+    // Remember it (metadata only, no creds) so it reappears after a restart.
+    clusterProfiles.save({ name, region: creds.region, endpoint, caData, version, awsEndpoint: creds.endpoint });
+    return sess(s);
   }));
 
   ipcMain.handle('cluster:status', wrap(async (id: string) => clusterStatus((await need(id)).kc)));
   ipcMain.handle('cluster:disconnect', wrap(async (id: string) => { sessions.remove(id); return null; }));
+
+  // ── Saved clusters (persisted profiles, no credentials) ──────────
+  ipcMain.handle('clusters:list', wrap(async () => clusterProfiles.list()));
+  ipcMain.handle('clusters:forget', wrap(async (id: string) => { clusterProfiles.remove(id); return null; }));
+  ipcMain.handle('clusters:reconnect', wrap(async (profileId: string): Promise<ClusterSession> => {
+    const p = clusterProfiles.get(profileId);
+    if (!p) throw new Error('saved cluster not found');
+    const creds = sessions.reuseCreds(p.region);
+    if (!creds) throw new Error('NO_CREDS'); // renderer collects creds and calls aws:connect
+    const full: AwsCreds = { ...creds, region: p.region, endpoint: p.awsEndpoint ?? creds.endpoint };
+    const { endpoint, caData, version } = await describeEksCluster(full, p.name);
+    const s = await sessions.create(full, p.name, endpoint, caData, version);
+    clusterProfiles.save({ name: p.name, region: p.region, endpoint, caData, version, awsEndpoint: full.endpoint });
+    return sess(s);
+  }));
 
   // ── Resource browser (generic CRUD) ──────────────────────────────
   ipcMain.handle('kube:descriptors', async () => RESOURCES);

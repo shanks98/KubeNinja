@@ -9,6 +9,7 @@ import { DetailsDrawer } from '../components/DetailsDrawer';
 import { Dock } from '../components/Dock';
 import { ResourceMap } from '../components/map/ResourceMap';
 import { HelmView } from '../components/helm/HelmView';
+import { SavedClusters } from '../components/SavedClusters';
 
 const CATEGORY_ORDER: ResourceCategory[] = ['Workloads', 'Config', 'Network', 'Storage', 'Access', 'Cluster'];
 
@@ -141,6 +142,9 @@ function ClusterSwitcher() {
                 <button className="cluster-x" title="Disconnect" onClick={() => { void disconnect(c.id); if (sessions.length === 1) setOpen(false); }}>✕</button>
               </div>
             ))}
+            <div style={{ padding: '6px 10px 2px' }}>
+              <SavedClusters compact hideConnected heading="Reconnect saved" onNeedCreds={() => { setOpen(false); setAddingCluster(true); }} />
+            </div>
             <button className="menu-item" style={{ marginTop: 4, color: 'var(--jade)' }} onClick={() => { setOpen(false); setAddingCluster(true); }}>＋ Add cluster</button>
           </div>
         </>

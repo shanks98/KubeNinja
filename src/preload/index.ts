@@ -15,6 +15,11 @@ const api: KnApi = {
     status: (sessionId) => ipcRenderer.invoke('cluster:status', sessionId),
     disconnect: (sessionId) => ipcRenderer.invoke('cluster:disconnect', sessionId),
   },
+  clusters: {
+    list: () => ipcRenderer.invoke('clusters:list'),
+    reconnect: (profileId) => ipcRenderer.invoke('clusters:reconnect', profileId),
+    forget: (profileId) => ipcRenderer.invoke('clusters:forget', profileId),
+  },
   kube: {
     descriptors: () => ipcRenderer.invoke('kube:descriptors'),
     list: (sessionId, resourceId, namespace) => ipcRenderer.invoke('kube:list', sessionId, resourceId, namespace),

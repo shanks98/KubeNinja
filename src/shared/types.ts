@@ -28,6 +28,24 @@ export interface ClusterSession {
   tokenExpiresAt: number; // epoch ms
 }
 
+/**
+ * A cluster the user connected to before, remembered across restarts. Persisted to
+ * disk WITHOUT any credentials — just enough to list it and reconnect (which re-mints
+ * a token from freshly-entered or session-reused creds). endpoint/caData/version are a
+ * cache for display and are refreshed on every successful reconnect.
+ */
+export interface ClusterProfile {
+  id: string;
+  name: string;
+  region: string;
+  endpoint: string;
+  caData: string;
+  version: string;
+  awsEndpoint?: string; // custom AWS endpoint (LocalStack / MiniStack), if one was used
+  addedAt: number;      // epoch ms
+  lastConnectedAt?: number;
+}
+
 export interface ClusterStatus {
   version: string;
   nodeCount: number;
@@ -233,6 +251,17 @@ export interface KnApi {
   cluster: {
     status(sessionId: string): Promise<Result<ClusterStatus>>;
     disconnect(sessionId: string): Promise<Result<null>>;
+  };
+  clusters: {
+    /** Saved cluster profiles (no credentials), newest-connected first. */
+    list(): Promise<Result<ClusterProfile[]>>;
+    /**
+     * Reconnect a saved cluster by reusing the creds of a live session in its region.
+     * Fails with error 'NO_CREDS' when none is live — the caller then collects creds.
+     */
+    reconnect(profileId: string): Promise<Result<ClusterSession>>;
+    /** Forget a saved cluster permanently. */
+    forget(profileId: string): Promise<Result<null>>;
   };
   kube: {
     descriptors(): Promise<ResourceDescriptor[]>;

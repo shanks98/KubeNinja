@@ -1,16 +1,16 @@
 import { useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import type { AwsCreds, EksClusterSummary } from '@shared/types';
+import type { AwsCreds, ClusterProfile, EksClusterSummary } from '@shared/types';
 import { useApp } from '../store';
 import { parseImportLines } from '../eksCommands';
 import type { ConnectMethod } from './Welcome';
 
 const REGIONS = ['ap-south-1', 'us-east-1', 'us-west-2', 'eu-west-1', 'eu-central-1', 'ap-southeast-1'];
 
-export function Connect({ method: initialMethod, onBack, asOverlay }: { method: ConnectMethod; onBack: () => void; asOverlay?: boolean }) {
+export function Connect({ method: initialMethod, onBack, asOverlay, reconnect }: { method: ConnectMethod; onBack: () => void; asOverlay?: boolean; reconnect?: ClusterProfile }) {
   const addSession = useApp((s) => s.addSession);
   const [method, setMethod] = useState<ConnectMethod>(initialMethod);
-  const [creds, setCreds] = useState<AwsCreds>({ accessKeyId: '', secretAccessKey: '', sessionToken: '', region: 'ap-south-1', endpoint: '' });
+  const [creds, setCreds] = useState<AwsCreds>({ accessKeyId: '', secretAccessKey: '', sessionToken: '', region: reconnect?.region ?? 'ap-south-1', endpoint: reconnect?.awsEndpoint ?? '' });
   const [clusters, setClusters] = useState<EksClusterSummary[] | null>(null);
   const [commands, setCommands] = useState('');
 
@@ -55,13 +55,15 @@ export function Connect({ method: initialMethod, onBack, asOverlay }: { method: 
         <button className="btn sm" style={{ marginBottom: 14 }} onClick={onBack}>{asOverlay ? '← Cancel' : '← Back'}</button>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-          <h1 style={{ fontSize: 22, letterSpacing: '.02em' }}>Connect a cluster</h1>
+          <h1 style={{ fontSize: 22, letterSpacing: '.02em' }}>{reconnect ? `Reconnect ${reconnect.name}` : 'Connect a cluster'}</h1>
         </div>
 
-        <div className="seg">
-          <button className={method === 'scan' ? 'on' : ''} onClick={() => switchMethod('scan')}>Scan region</button>
-          <button className={method === 'cmd' ? 'on' : ''} onClick={() => switchMethod('cmd')}>By command</button>
-        </div>
+        {!reconnect && (
+          <div className="seg">
+            <button className={method === 'scan' ? 'on' : ''} onClick={() => switchMethod('scan')}>Scan region</button>
+            <button className={method === 'cmd' ? 'on' : ''} onClick={() => switchMethod('cmd')}>By command</button>
+          </div>
+        )}
 
         <div className="card">
           {field('AWS Access Key ID', 'accessKeyId', 'text', 'AKIA… / ASIA…')}
@@ -69,7 +71,18 @@ export function Connect({ method: initialMethod, onBack, asOverlay }: { method: 
           {field('Session Token — for assumed / SSO roles', 'sessionToken', 'password', 'optional')}
           {field('AWS endpoint — optional (LocalStack / MiniStack)', 'endpoint', 'text', 'http://localhost:4566')}
 
-          {method === 'scan' ? (
+          {reconnect ? (
+            <>
+              {err && <div className="alert" style={{ marginBottom: 12 }}>{(err as Error).message}</div>}
+              <button className="btn primary" style={{ width: '100%' }}
+                disabled={!hasCreds || connect.isPending} onClick={() => connect.mutate({ name: reconnect.name, region: reconnect.region })}>
+                {connect.isPending ? 'Connecting…' : `Connect to ${reconnect.name}`}
+              </button>
+              <div className="muted mono" style={{ fontSize: 11, marginTop: 12 }}>
+                {reconnect.region} · v{reconnect.version} · {reconnect.endpoint}
+              </div>
+            </>
+          ) : method === 'scan' ? (
             <>
               <label style={{ display: 'block', marginBottom: 12 }}>
                 <div className="lbl" style={{ marginBottom: 5 }}>Region</div>

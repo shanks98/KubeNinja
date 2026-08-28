@@ -1,5 +1,7 @@
+import type { ClusterProfile } from '@shared/types';
 import { LOGO_URI } from '../logo';
 import { Icon } from '../Icon';
+import { SavedClusters } from '../components/SavedClusters';
 
 export type ConnectMethod = 'scan' | 'cmd';
 
@@ -10,7 +12,7 @@ const FEATURES = [
   { ic: 'shield', title: 'Secure', body: 'Presigned STS token minted in memory. No kubeconfig, no creds on disk.' },
 ];
 
-export function Welcome({ onConnect }: { onConnect: (m: ConnectMethod) => void }) {
+export function Welcome({ onConnect, onNeedCreds }: { onConnect: (m: ConnectMethod) => void; onNeedCreds: (p: ClusterProfile) => void }) {
   return (
     <div className="welcome">
       <div className="hero">
@@ -27,6 +29,10 @@ export function Welcome({ onConnect }: { onConnect: (m: ConnectMethod) => void }
         <div className="cta">
           <button className="btn-lg primary" onClick={() => onConnect('scan')}><Icon name="bolt" />Connect a cluster</button>
           <button className="btn-lg ghost" onClick={() => onConnect('cmd')}>Connect by <span className="mono">aws eks</span> command</button>
+        </div>
+
+        <div className="saved-wrap" style={{ maxWidth: 420, margin: '4px auto 0' }}>
+          <SavedClusters onNeedCreds={onNeedCreds} />
         </div>
 
         <div className="cards">

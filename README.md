@@ -13,7 +13,9 @@ credentials held in memory only** (a presigned STS token; no kubeconfig on disk)
 
 ## Features
 
-- **Multi-cluster** — connect several EKS clusters at once; switch from the titlebar.
+- **Multi-cluster** — connect several EKS clusters at once and switch from the titlebar.
+  Connected clusters are **remembered across restarts** (metadata only — never credentials);
+  on relaunch they're listed on Welcome, and pasting credentials once reconnects any of them.
 - **Resource browser** — ~20 kinds, live via watches, per-kind columns, YAML view/edit/apply,
   rich per-kind details, reveal-secret.
 - **Pods** — logs (container picker, previous, tail), live file tail, log-level trace, exec shell.

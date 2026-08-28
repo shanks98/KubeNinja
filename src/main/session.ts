@@ -44,6 +44,22 @@ class SessionStore {
     return s;
   }
 
+  /**
+   * Creds from any live session — one AWS credential set reaches every cluster in its
+   * account across regions, so once the user has connected one cluster we can reconnect
+   * the rest of their saved clusters without re-prompting. Credentials stay in the main
+   * process; a wrong-account reuse just fails describe and the caller re-prompts.
+   * Prefer a same-region session (identical endpoint override) when one exists.
+   */
+  reuseCreds(region: string): AwsCreds | undefined {
+    let fallback: AwsCreds | undefined;
+    for (const s of this.sessions.values()) {
+      if (s.region === region) return s.creds;
+      fallback ??= s.creds;
+    }
+    return fallback;
+  }
+
   remove(id: string): void {
     this.sessions.delete(id);
   }
