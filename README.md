@@ -5,47 +5,112 @@ A single-user, cross-platform **Kubernetes / EKS operations & investigation desk
 findings, evidence, a local timeline — and connects to **EKS with short-lived AWS session
 credentials held in memory only** (a presigned STS token; no kubeconfig on disk).
 
-> Status: **early — Slice 0** (bootable shell + EKS connect + cluster status + pods). The
-> milestone plan is in [`docs/design/PLAN.md`](docs/design/PLAN.md); the design in
-> [`docs/design/SPEC.md`](docs/design/SPEC.md).
+> Status: **v0.2.0** — MVP complete. Multi-cluster resource browser (YAML, logs/live/trace,
+> exec, workload actions), investigation Cases + a forensic tools suite (Base64/JWT/HAR/DNS/
+> cert/hash/…), a resource-topology map, and full Helm (list/history/rollback/upgrade/install).
+> Observability (Prometheus/Loki) is deferred to v2. Milestone plan in
+> [`docs/design/PLAN.md`](docs/design/PLAN.md); design in [`docs/design/SPEC.md`](docs/design/SPEC.md).
+
+## Features
+
+- **Multi-cluster** — connect several EKS clusters at once; switch from the titlebar.
+- **Resource browser** — ~20 kinds, live via watches, per-kind columns, YAML view/edit/apply,
+  rich per-kind details, reveal-secret.
+- **Pods** — logs (container picker, previous, tail), live file tail, log-level trace, exec shell.
+- **Actions** — restart / scale / cordon / drain (evict) / delete — each written to a local audit log.
+- **Investigation Cases** — findings with severity rollup, a timeline fed by the audit log,
+  evidence (pinned YAML / log snippets / notes / screenshots), and an HTML/JSON report.
+- **Tools** — Base64, JWT decoder, forensic HAR analyzer, DNS lookup, certificate inspector,
+  hash, URL, timestamp, JSON, CIDR. Results pin to a case.
+- **Resource map** — a force-directed topology graph (owner refs, Service/Ingress/PVC/HPA/NetPol edges).
+- **Helm** — releases, history, values, manifest, and rollback / upgrade / install / uninstall.
+
+---
+
+## Install & run
+
+**Requirements:** [Node.js](https://nodejs.org) **20+** and Git. (Windows for the prebuilt portable
+app; macOS/Linux are supported from source.)
+
+### Option A — run the packaged Windows app (no install)
+
+The portable build is a self-contained folder — no installer, nothing written to Program Files.
+
+1. Get the `KubeNinja-win-x64` folder (build it with Option B's `npm run pack:portable`, or copy a
+   prebuilt `dist/KubeNinja-win-x64/` folder).
+2. Double-click **`KubeNinja.exe`** inside it.
+3. It's unsigned, so Windows SmartScreen may warn on first launch — choose **More info → Run anyway**.
+
+The whole folder is portable: copy it to a USB stick or another machine and it runs as-is.
+
+### Option B — build & run from source
+
+```bash
+git clone https://github.com/shanks98/KubeNinja.git
+cd KubeNinja
+npm install
+
+# (optional) bundle the helm binaries so Helm actions work — see "Helm" below
+node scripts/fetch-helm.mjs
+
+npm run dev            # launch with hot reload (development)
+# — or —
+npm run pack:portable  # build a standalone app → dist/KubeNinja-win-x64/KubeNinja.exe
+```
+
+`npm run dev` opens the app with live reload. `npm run pack:portable` produces the portable folder
+from Option A.
+
+### First connect
+
+KubeNinja never reads a kubeconfig — you paste **AWS session credentials** and it mints an EKS
+token in memory.
+
+1. On the Welcome screen, click **Connect a cluster** (or **File → Add cluster…**, `Ctrl+N`).
+2. Paste your **AWS Access Key ID**, **Secret**, and (for assumed/SSO roles) **Session Token**,
+   pick the **region**, then **Scan for EKS clusters** and choose one.
+   - Or use **By command** and paste an `aws eks update-kubeconfig --name … --region …` line.
+   - For LocalStack/MiniStack, set the optional **AWS endpoint**.
+3. Add more clusters anytime from the titlebar switcher; switch or disconnect there.
+
+Credentials and tokens live only in the main process's memory and are scrubbed on disconnect/exit.
+
+---
 
 ## Develop
 
 ```bash
 npm install
-npm run dev          # launch the app with hot reload
-npm test             # unit tests (STS token minting, …)
-npm run typecheck    # tsc for main + renderer
-npm run build         # bundle main + preload + renderer
-npm run pack:portable # standalone Windows app → dist/KubeNinja-win-x64/KubeNinja.exe
-npm run dist          # platform installer (nsis / dmg / AppImage) — see note
+npm run dev            # launch the app with hot reload
+npm test               # unit tests (STS token, resource paths, tools, graph, …)
+npm run typecheck      # tsc for main + preload + renderer
+npm run build          # bundle main + preload + renderer
+npm run pack:portable  # standalone Windows app → dist/KubeNinja-win-x64/KubeNinja.exe
+npm run dist           # platform installer (nsis / dmg / AppImage) — see note
 ```
 
-### Standalone executable (Windows)
-
-```bash
-npm run pack:portable
-```
-
-produces **`dist/KubeNinja-win-x64/KubeNinja.exe`** — a no-install, double-click app (the whole
-folder is portable). It bundles the main process and hand-assembles the Electron runtime, so it
+`npm run pack:portable` bundles the main process and hand-assembles the Electron runtime, so it
 sidesteps electron-builder's signing-tool cache, which won't extract on Windows without the
 symbolic-link privilege. For the full `npm run dist` installers (nsis/dmg/AppImage), enable
 **Developer Mode** (or run elevated) so that cache can unpack.
 
-Requires Node 20+.
+### Helm
+
+Helm actions require a `helm` binary. `node scripts/fetch-helm.mjs` downloads the official Helm
+binaries into `resources/bin/` (git-ignored); `pack:portable` then bundles `helm.exe` into the app
+(`resources/bin/helm.exe`). Without it, the **Helm** view degrades gracefully to "unavailable".
 
 ## How it connects
 
-KubeNinja never reads a kubeconfig. You paste AWS session credentials; the **main process**
-mints an EKS bearer token by presigning an STS `GetCallerIdentity` request (SigV4, with the
+KubeNinja never reads a kubeconfig. You paste AWS session credentials; the **main process** mints
+an EKS bearer token by presigning an STS `GetCallerIdentity` request (SigV4, with the
 `x-k8s-aws-id` cluster header as a signed header) and talks to the cluster's API server directly
 via `@kubernetes/client-node`. Credentials and tokens live only in the main process's memory and
 are scrubbed on disconnect / exit; tokens are re-minted transparently before expiry.
 
 ## Architecture (short)
 
-`src/main` (Node) owns AWS + Kubernetes + local storage and exposes a typed IPC bridge;
+`src/main` (Node) owns AWS + Kubernetes + Helm + local storage and exposes a typed IPC bridge;
 `src/preload` publishes `window.kn`; `src/renderer` (React) is pure UI with `contextIsolation`
 on. See the spec for the full picture and the vertical-slice plan.
 
