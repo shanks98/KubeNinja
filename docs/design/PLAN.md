@@ -24,10 +24,29 @@ Each slice is independently runnable and verifiable. Build order:
 - [x] Verify: `npm test` (16), `npm run typecheck`, `npm run build` green; UI driven through a mock
       IPC bridge (table/drawer/YAML/dock/exec/trace/action-log). Live cluster run pending a real EKS target.
 
-## Slice 2 — Investigation Cases
-- SQLite (`better-sqlite3`) store: cases, findings, comments, evidence-meta, `action_log`.
-- Findings (severity/status + rollup); timeline (action log + case events); evidence (log viewer
-  excerpt/full/search, line-pin snippets, screenshots); notes; HTML/JSON report.
+## Slice 2 — Investigation Cases  ✅
+- [x] Store: pure-TS JSON store under userData (cases, findings, comments, evidence-meta, events,
+      action_log) + evidence blobs SHA-256'd on disk. (Chosen over better-sqlite3 to keep the
+      zero-native-dependency portable packaging; same interface, migratable later.)
+- [x] Findings (severity/status + rollup); timeline (case events + folded-in action log); evidence
+      (pinned YAML / log snippets / notes / window screenshots) with delete; HTML + JSON report
+      (self-contained, inline screenshots) with in-app preview + export.
+- [x] Cluster→case integration: "Pin to case" from the YAML drawer and log panels; a case picker;
+      "Cases" view over the cluster IDE. Tests: rollup (4). typecheck + build green; verified via mock bridge.
+- [x] **Investigation Tools** view (DockerLens carry-over): Base64, JWT decoder, hash, URL, timestamp,
+      JSON format, CIDR calc (renderer-pure) + DNS lookup & TLS certificate check (main-process
+      `dns`/`tls`). Each result pins to a case as evidence. Tests: pure tools (6).
+- [x] **Forensic HAR analyzer** (DockerLens-style): file drop, Overview/Requests/Errors/Performance/
+      Auth-Flow/Security tabs, per-request risk scoring + expandable payload/response previews,
+      aggregated security findings (secrets-in-URL, Basic auth, insecure cookies, mixed content,
+      missing HSTS/CSP), and auth-flow reconstruction. Pins the summary to a case. Tests: analyzer (5).
+- [x] **JWT inspector**: header chips + claim table w/ expiry countdown, decoded header/payload,
+      signature (unverified), and a security-analysis panel (alg:none, symmetric HMAC, expired,
+      no-exp, not-yet-valid, long-lived, missing iss/aud). Pure. Tests (4).
+- [x] **Certificate inspector**: Host:port (TLS chain via `getPeerCertificate(true)`) or paste-PEM
+      (`X509Certificate`); real key type/bits, signature-alg from the DER, self-signed + chain;
+      findings (expired/expiring, weak sig, short key, self-signed, hostname mismatch, long validity,
+      wildcard) computed renderer-side. Tests (4).
 
 ## Slice 3 — Observability
 - Prometheus PromQL + Loki LogQL panels (configured endpoints); inline pod/node metric sparklines.

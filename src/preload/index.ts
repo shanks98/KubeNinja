@@ -77,8 +77,30 @@ const api: KnApi = {
   actionLog: {
     list: () => ipcRenderer.invoke('actionLog:list'),
   },
+  cases: {
+    list: () => ipcRenderer.invoke('cases:list'),
+    create: (input) => ipcRenderer.invoke('cases:create', input),
+    update: (id, patch) => ipcRenderer.invoke('cases:update', id, patch),
+    remove: (id) => ipcRenderer.invoke('cases:remove', id),
+    get: (id) => ipcRenderer.invoke('cases:get', id),
+    addFinding: (id, input) => ipcRenderer.invoke('cases:addFinding', id, input),
+    updateFinding: (id, patch) => ipcRenderer.invoke('cases:updateFinding', id, patch),
+    removeFinding: (id) => ipcRenderer.invoke('cases:removeFinding', id),
+    addComment: (id, input) => ipcRenderer.invoke('cases:addComment', id, input),
+    addEvidence: (id, input) => ipcRenderer.invoke('cases:addEvidence', id, input),
+    addScreenshot: (id, input) => ipcRenderer.invoke('cases:addScreenshot', id, input),
+    evidenceDataUrl: (id) => ipcRenderer.invoke('cases:evidenceDataUrl', id),
+    removeEvidence: (id) => ipcRenderer.invoke('cases:removeEvidence', id),
+    report: (id, format) => ipcRenderer.invoke('cases:report', id, format),
+  },
+  tools: {
+    dns: (host, type) => ipcRenderer.invoke('tools:dns', host, type),
+    cert: (hostPort) => ipcRenderer.invoke('tools:cert', hostPort),
+    certPem: (pem) => ipcRenderer.invoke('tools:certPem', pem),
+  },
   app: {
     version: () => ipcRenderer.invoke('app:version'),
+    capture: () => ipcRenderer.invoke('app:capture'),
   },
 };
 

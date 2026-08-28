@@ -1,5 +1,7 @@
-import { ipcMain, app } from 'electron';
+import { ipcMain, app, BrowserWindow } from 'electron';
 import type { AwsCreds, ClusterSession, Result, WatchParams, LogParams, ExecParams } from '@shared/types';
+import { cases } from './store/cases';
+import { dnsLookup, certCheck, certFromPem } from './tools';
 import { listEksClusters, describeEksCluster } from './aws/eks';
 import {
   clusterStatus, listResource, getResource, applyYaml, deleteResource,
@@ -192,5 +194,32 @@ export function registerIpc(): void {
   ipcMain.handle('exec:resize', (_e, id: string, cols: number, rows: number) => execs.get(id)?.resize(cols, rows));
   ipcMain.handle('exec:stop', (_e, id: string) => { execs.get(id)?.close(); execs.delete(id); });
 
+  // ── Investigation Cases ──────────────────────────────────────────
+  ipcMain.handle('cases:list', wrap(async () => cases.list()));
+  ipcMain.handle('cases:create', wrap(async (input) => cases.create(input)));
+  ipcMain.handle('cases:update', wrap(async (id: string, patch) => cases.update(id, patch)));
+  ipcMain.handle('cases:remove', wrap(async (id: string) => { cases.remove(id); return null; }));
+  ipcMain.handle('cases:get', wrap(async (id: string) => cases.get(id)));
+  ipcMain.handle('cases:addFinding', wrap(async (id: string, input) => cases.addFinding(id, input)));
+  ipcMain.handle('cases:updateFinding', wrap(async (id: string, patch) => cases.updateFinding(id, patch)));
+  ipcMain.handle('cases:removeFinding', wrap(async (id: string) => { cases.removeFinding(id); return null; }));
+  ipcMain.handle('cases:addComment', wrap(async (id: string, input) => cases.addComment(id, input)));
+  ipcMain.handle('cases:addEvidence', wrap(async (id: string, input) => cases.addEvidence(id, input)));
+  ipcMain.handle('cases:addScreenshot', wrap(async (id: string, input) => cases.addScreenshot(id, input)));
+  ipcMain.handle('cases:evidenceDataUrl', wrap(async (id: string) => cases.evidenceDataUrl(id)));
+  ipcMain.handle('cases:removeEvidence', wrap(async (id: string) => { cases.removeEvidence(id); return null; }));
+  ipcMain.handle('cases:report', wrap(async (id: string, format: 'html' | 'json') => cases.report(id, format)));
+
+  // ── Investigation tools (network-backed) ─────────────────────────
+  ipcMain.handle('tools:dns', wrap(async (host: string, type) => dnsLookup(host, type)));
+  ipcMain.handle('tools:cert', wrap(async (hostPort: string) => certCheck(hostPort)));
+  ipcMain.handle('tools:certPem', wrap(async (pem: string) => certFromPem(pem)));
+
   ipcMain.handle('app:version', async () => app.getVersion());
+  ipcMain.handle('app:capture', wrap(async () => {
+    const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+    if (!win) throw new Error('no window to capture');
+    const img = await win.webContents.capturePage();
+    return img.toDataURL();
+  }));
 }

@@ -111,6 +111,95 @@ export interface ActionLogEntry {
   error?: string;
 }
 
+// ── Investigation Cases (Slice 2) ──────────────────────────────────────
+export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
+export type FindingStatus = 'open' | 'investigating' | 'mitigated' | 'resolved' | 'wontfix';
+export type CaseStatus = 'open' | 'closed';
+export const SEVERITIES: Severity[] = ['critical', 'high', 'medium', 'low', 'info'];
+export const FINDING_STATUSES: FindingStatus[] = ['open', 'investigating', 'mitigated', 'resolved', 'wontfix'];
+
+export interface Case {
+  id: string;
+  title: string;
+  description?: string;
+  status: CaseStatus;
+  cluster?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+export interface Finding {
+  id: string;
+  caseId: string;
+  title: string;
+  severity: Severity;
+  status: FindingStatus;
+  detail?: string;
+  resource?: string; // e.g. "Pod/shop/web-1"
+  createdAt: number;
+  updatedAt: number;
+}
+export interface Comment {
+  id: string;
+  caseId: string;
+  findingId?: string;
+  text: string;
+  createdAt: number;
+}
+export type EvidenceKind = 'note' | 'snippet' | 'yaml' | 'screenshot';
+export interface Evidence {
+  id: string;
+  caseId: string;
+  findingId?: string;
+  kind: EvidenceKind;
+  title: string;
+  contentText?: string; // for note/snippet/yaml
+  mime?: string; // for screenshot
+  sha256?: string;
+  source?: string; // where it came from (resource ref, pod, etc.)
+  createdAt: number;
+}
+export interface CaseEvent {
+  id: string;
+  caseId: string;
+  ts: number;
+  type: string; // created | note | finding | evidence | status | closed …
+  text: string;
+}
+export interface TimelineItem {
+  ts: number;
+  kind: 'event' | 'action' | 'finding' | 'evidence';
+  text: string;
+  severity?: Severity;
+  verb?: string;
+  ok?: boolean;
+}
+export interface SeverityRollup { top?: Severity; open: number; total: number; counts: Record<Severity, number> }
+export interface CaseSummary extends Case { rollup: SeverityRollup; findingCount: number }
+export interface CaseDetail {
+  case: Case;
+  findings: Finding[];
+  comments: Comment[];
+  evidence: Evidence[];
+  timeline: TimelineItem[];
+  rollup: SeverityRollup;
+}
+
+// ── Investigation tools (main-process backed) ──────────────────────────
+export type DnsRecordType = 'A' | 'AAAA' | 'CNAME' | 'MX' | 'TXT' | 'NS';
+export interface DnsResult { host: string; type: DnsRecordType; records: string[]; ms: number }
+export interface CertChainNode { subject: string; issuer: string; daysLeft: number }
+export interface CertResult {
+  host?: string; port?: number;
+  subject: string; subjectCN?: string; subjectO?: string;
+  issuer: string; issuerCN?: string;
+  serialNumber?: string;
+  validFrom: string; validTo: string; daysLeft: number; expired: boolean;
+  sigAlg?: string; keyType?: string; bits?: number;
+  sans?: string[]; isCA?: boolean; selfSigned?: boolean; authorized: boolean;
+  chain?: CertChainNode[];
+  error?: string;
+}
+
 /** Handle to an interactive exec session (renderer side). */
 export interface ExecHandle {
   write(data: string): void;
@@ -160,7 +249,30 @@ export interface KnApi {
   actionLog: {
     list(): Promise<Result<ActionLogEntry[]>>;
   };
+  cases: {
+    list(): Promise<Result<CaseSummary[]>>;
+    create(input: { title: string; description?: string; cluster?: string }): Promise<Result<Case>>;
+    update(id: string, patch: Partial<Pick<Case, 'title' | 'description' | 'status'>>): Promise<Result<Case>>;
+    remove(id: string): Promise<Result<null>>;
+    get(id: string): Promise<Result<CaseDetail>>;
+    addFinding(caseId: string, input: { title: string; severity: Severity; status?: FindingStatus; detail?: string; resource?: string }): Promise<Result<Finding>>;
+    updateFinding(id: string, patch: Partial<Pick<Finding, 'title' | 'severity' | 'status' | 'detail'>>): Promise<Result<Finding>>;
+    removeFinding(id: string): Promise<Result<null>>;
+    addComment(caseId: string, input: { text: string; findingId?: string }): Promise<Result<Comment>>;
+    addEvidence(caseId: string, input: { kind: EvidenceKind; title: string; contentText?: string; source?: string; findingId?: string }): Promise<Result<Evidence>>;
+    addScreenshot(caseId: string, input: { title: string; dataUrl: string; findingId?: string }): Promise<Result<Evidence>>;
+    evidenceDataUrl(id: string): Promise<Result<string>>;
+    removeEvidence(id: string): Promise<Result<null>>;
+    report(id: string, format: 'html' | 'json'): Promise<Result<string>>;
+  };
+  tools: {
+    dns(host: string, type: DnsRecordType): Promise<Result<DnsResult>>;
+    cert(hostPort: string): Promise<Result<CertResult>>;
+    certPem(pem: string): Promise<Result<CertResult>>;
+  };
   app: {
     version(): Promise<string>;
+    /** Capture the app window as a PNG data URL (for screenshot evidence). */
+    capture(): Promise<Result<string>>;
   };
 }

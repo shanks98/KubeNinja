@@ -6,6 +6,7 @@ import { useApp } from '../store';
 import { KubeObject } from '../kube/KubeObject';
 import { YamlEditor } from './YamlEditor';
 import { toast } from './Toast';
+import { pinEvidence } from './cases/pin';
 
 function cleanForYaml(obj: RawKubeObject): RawKubeObject {
   const c = structuredClone(obj);
@@ -103,6 +104,7 @@ export function DetailsDrawer() {
             <div className="yaml-bar">
               <span className="muted" style={{ fontSize: 11.5 }}>{dirty ? 'Modified — Apply to persist' : 'Editing the live object'}</span>
               <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                <button className="btn sm" onClick={() => pinEvidence({ kind: 'yaml', title: `${obj?.getKind()}/${details.name}`, contentText: draft, source: details.namespace ? `${details.namespace}/${details.name}` : details.name })}>Pin to case</button>
                 <button className="btn sm" disabled={!dirty} onClick={() => { if (q.data) { setDraft(dumpYaml(cleanForYaml(q.data), { noRefs: true, lineWidth: -1 })); setDirty(false); } }}>Reset</button>
                 <button className="btn sm primary" disabled={!dirty || applying} onClick={apply}>{applying ? 'Applying…' : 'Apply'}</button>
               </div>

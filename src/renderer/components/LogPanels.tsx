@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { LogParams } from '@shared/types';
 import type { DockTab } from '../store';
 import { useApp } from '../store';
+import { pinEvidence } from './cases/pin';
 
 /** Streams logs (container follow, or `tail -F` a file) into a scrolling pane. */
 function LogView({ params, downloadName }: { params: LogParams; downloadName?: string }) {
@@ -61,6 +62,7 @@ function LogView({ params, downloadName }: { params: LogParams; downloadName?: s
         <label className="chk"><input type="checkbox" checked={autoscroll} onChange={(e) => setAutoscroll(e.target.checked)} />Follow</label>
         <label className="chk"><input type="checkbox" checked={wrap} onChange={(e) => setWrap(e.target.checked)} />Wrap</label>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          <button className="btn sm" onClick={() => pinEvidence({ kind: 'snippet', title: `Logs · ${params.pod}${params.container ? '/' + params.container : ''}`, contentText: shown.slice(-500).join('\n'), source: `${params.namespace}/${params.pod}` })}>Pin to case</button>
           {!params.filePath && <button className="btn sm" onClick={download}>Download</button>}
           <button className="btn sm" onClick={() => setLines([])}>Clear</button>
         </div>

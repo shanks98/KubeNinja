@@ -52,7 +52,9 @@ audit ledger** and feeds the Cases **timeline**. Reports export HTML / JSON loca
   reveal) → each writes the action log.
 - **Slice 2 — Investigation Cases.** Local case store; findings (severity/status + rollup),
   timeline (action log + case events), evidence (log viewer excerpt/full/search, line-pin
-  snippets, screenshots), notes, HTML/JSON report.
+  snippets, screenshots), notes, HTML/JSON report. **Investigation Tools** (DockerLens carry-over):
+  Base64, JWT decoder, HAR analyzer, hash, URL, timestamp, JSON, CIDR (renderer-pure) plus DNS
+  lookup and TLS certificate check (main-process Node `dns`/`tls`); every result pins to a case.
 - **Slice 3 — Observability.** Prometheus PromQL + Loki LogQL panels + inline pod/node metric sparklines.
 - **Slice 4 — Resource map + Helm.** Cluster topology graph (net-new — owner refs + Service/Ingress/PVC edges) and Helm releases (list/history/rollback/upgrade/install-from-URL).
 

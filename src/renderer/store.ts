@@ -22,8 +22,12 @@ interface AppState {
   details: ObjectRef | null;
   dock: DockTab[];
   dockActive: string | null;
+  overlay: 'cases' | 'tools' | null;
+  selectedCase: string | null;
 
   setSession: (s: ClusterSession | null) => void;
+  setOverlay: (o: AppState['overlay']) => void;
+  setSelectedCase: (id: string | null) => void;
   setActiveResource: (id: string) => void;
   setNamespace: (ns: string) => void;
   setDetails: (r: ObjectRef | null) => void;
@@ -39,8 +43,12 @@ export const useApp = create<AppState>((set) => ({
   details: null,
   dock: [],
   dockActive: null,
+  overlay: null,
+  selectedCase: null,
 
-  setSession: (session) => set({ session, details: null, dock: [], dockActive: null }),
+  setSession: (session) => set({ session, details: null, dock: [], dockActive: null, overlay: null }),
+  setOverlay: (overlay) => set({ overlay }),
+  setSelectedCase: (selectedCase) => set({ selectedCase }),
   setActiveResource: (activeResource) => set({ activeResource, details: null }),
   setNamespace: (namespace) => set({ namespace }),
   setDetails: (details) => set({ details }),

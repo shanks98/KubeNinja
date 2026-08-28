@@ -48,6 +48,8 @@ export function ClusterShell() {
         <span className="pill ok" style={{ marginLeft: 6 }}><span className="d" />Connected</span>
         <span className="mono muted" style={{ fontSize: 12 }}>{session.name} · {session.region} · v{session.version}</span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          <button className="btn sm" onClick={() => useApp.getState().setOverlay('cases')}>Cases</button>
+          <button className="btn sm" onClick={() => useApp.getState().setOverlay('tools')}>Tools</button>
           <button className="btn sm" onClick={() => setShowLog(true)}>Action log</button>
           <button className="btn sm" onClick={disconnect}>Disconnect</button>
         </div>

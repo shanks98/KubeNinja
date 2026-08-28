@@ -9,10 +9,12 @@ export default defineConfig({
   main: {
     // Bundle all npm deps into the main entry so the packaged app needs no
     // node_modules (node builtins stay external via Vite's SSR defaults).
+    resolve: { alias: { '@shared': resolve('src/shared') } },
     build: { rollupOptions: { input: { index: resolve('src/main/index.ts') }, external: ['electron'] } },
   },
   preload: {
     plugins: [externalizeDepsPlugin()],
+    resolve: { alias: { '@shared': resolve('src/shared') } },
     build: { rollupOptions: { input: { index: resolve('src/preload/index.ts') } } },
   },
   renderer: {
