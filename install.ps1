@@ -1,7 +1,7 @@
 # KubeNinja setup - installs prerequisites, skipping anything already present.
 # Run:  powershell -ExecutionPolicy Bypass -File install.ps1     (or double-click install.cmd)
 #
-# Steps: Node.js 20+ (via winget) - Git (optional) - npm dependencies - bundled helm binary.
+# Steps: Node.js 20+ (via winget) - npm dependencies - bundled helm binary.
 [CmdletBinding()]
 param([switch]$SkipHelm)
 
@@ -46,13 +46,7 @@ if ($needNode) {
   }
 }
 
-# 2. Git (optional)
-Step "Git (optional)"
-if (Have git) { Ok "Git already installed" }
-elseif (Have winget) { Info "Installing Git..."; winget install --id Git.Git -e --silent --accept-source-agreements --accept-package-agreements; RefreshPath; Ok "Git installed" }
-else { Info "Git not found (only needed to clone; a downloaded ZIP works too)" }
-
-# 3. npm dependencies
+# 2. npm dependencies
 Step "npm dependencies"
 # Invoke through cmd so PowerShell's script-execution policy never blocks npm.
 Info "Running npm install (this can take a couple of minutes)..."
@@ -60,7 +54,7 @@ cmd /c "npm install"
 if ($LASTEXITCODE -ne 0) { Warn "npm install failed (see output above)."; exit 1 }
 Ok "Dependencies installed"
 
-# 4. Bundled helm binary (for the Helm view)
+# 3. Bundled helm binary (for the Helm view)
 if (-not $SkipHelm) {
   Step "Helm binary"
   $helm = Join-Path $root 'resources\bin\helm-win-x64.exe'

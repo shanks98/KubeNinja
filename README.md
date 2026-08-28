@@ -46,9 +46,9 @@ The whole folder is portable: copy it to a USB stick or another machine and it r
 ### Option B — build & run from source
 
 **Windows — one-command setup.** From the KubeNinja folder, double-click **`install.cmd`** (or run
-`powershell -ExecutionPolicy Bypass -File install.ps1`). It checks for **Node.js 20+**, **Git**, and
-the **helm** binary, installs only what's missing (Node/Git via `winget`), runs `npm install`, and
-prints the next command. Re-running it is safe.
+`powershell -ExecutionPolicy Bypass -File install.ps1`). It checks for **Node.js 20+** and the
+**helm** binary, installs only what's missing (Node via `winget`), runs `npm install`, and prints the
+next command. Re-running it is safe.
 
 **Manual** (any OS):
 
