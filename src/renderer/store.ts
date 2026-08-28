@@ -16,7 +16,12 @@ export interface DockTab {
   filePath?: string; // for 'live'
 }
 
+// The pre-shell wizard route. 'boot' resolves to 'reconnect' (saved clusters exist)
+// or 'welcome' (first run) on startup; 'shell' is the connected cluster IDE.
+export type Route = 'boot' | 'welcome' | 'add' | 'reconnect' | 'connect' | 'shell';
+
 interface AppState {
+  route: Route;
   sessions: ClusterSession[];   // every connected cluster (held in the main process too)
   session: ClusterSession | null; // the active one
   addingCluster: boolean;       // the "add a cluster" connect flow is open
@@ -28,6 +33,7 @@ interface AppState {
   overlay: 'cases' | 'tools' | null;
   selectedCase: string | null;
 
+  setRoute: (r: Route) => void;
   addSession: (s: ClusterSession) => void;
   switchCluster: (id: string) => void;
   removeSession: (id: string) => void;
@@ -48,6 +54,7 @@ interface AppState {
 const reset = (): Pick<AppState, 'details' | 'dock' | 'dockActive' | 'namespace'> => ({ details: null, dock: [], dockActive: null, namespace: '' });
 
 export const useApp = create<AppState>((set) => ({
+  route: 'boot',
   sessions: [],
   session: null,
   addingCluster: false,
@@ -59,6 +66,9 @@ export const useApp = create<AppState>((set) => ({
   overlay: null,
   selectedCase: null,
 
+  setRoute: (route) => set({ route }),
+  // A new session is made active but the route is left alone — the connect page stays
+  // up so the user can bring up more clusters before entering the shell.
   addSession: (s) => set((st) => ({
     sessions: st.sessions.some((x) => x.id === s.id) ? st.sessions : [...st.sessions, s],
     session: s, addingCluster: false, overlay: null, ...reset(),
@@ -71,9 +81,11 @@ export const useApp = create<AppState>((set) => ({
     const sessions = st.sessions.filter((x) => x.id !== id);
     if (st.session?.id !== id) return { sessions };
     const session = sessions[sessions.length - 1] ?? null;
-    return { sessions, session, ...reset() };
+    // Left the shell with nothing connected — fall back to the connect page.
+    const route: Partial<AppState> = !session && st.route === 'shell' ? { route: 'connect' as Route } : {};
+    return { sessions, session, ...reset(), ...route };
   }),
-  clearSessions: () => set({ sessions: [], session: null, ...reset(), overlay: null }),
+  clearSessions: () => set({ sessions: [], session: null, route: 'boot', ...reset(), overlay: null }),
   setAddingCluster: (addingCluster) => set({ addingCluster }),
   setOverlay: (overlay) => set({ overlay }),
   setSelectedCase: (selectedCase) => set({ selectedCase }),

@@ -1,9 +1,5 @@
-import type { ClusterProfile } from '@shared/types';
 import { LOGO_URI } from '../logo';
 import { Icon } from '../Icon';
-import { SavedClusters } from '../components/SavedClusters';
-
-export type ConnectMethod = 'scan' | 'cmd';
 
 const FEATURES = [
   { ic: 'grid', title: 'Operate', body: 'Resources, YAML, logs, live-tail, log4j trace, exec, restart / scale / drain.' },
@@ -12,7 +8,7 @@ const FEATURES = [
   { ic: 'shield', title: 'Secure', body: 'Presigned STS token minted in memory. No kubeconfig, no creds on disk.' },
 ];
 
-export function Welcome({ onConnect, onNeedCreds }: { onConnect: (m: ConnectMethod) => void; onNeedCreds: (p: ClusterProfile) => void }) {
+export function Welcome({ onConnect }: { onConnect: () => void }) {
   return (
     <div className="welcome">
       <div className="hero">
@@ -27,12 +23,8 @@ export function Welcome({ onConnect, onNeedCreds }: { onConnect: (m: ConnectMeth
         <p className="sub">Browse resources, tail logs, exec into pods, and build investigation cases with pinned evidence — connecting to EKS with short-lived AWS session credentials that never touch disk.</p>
 
         <div className="cta">
-          <button className="btn-lg primary" onClick={() => onConnect('scan')}><Icon name="bolt" />Connect a cluster</button>
-          <button className="btn-lg ghost" onClick={() => onConnect('cmd')}>Connect by <span className="mono">aws eks</span> command</button>
-        </div>
-
-        <div className="saved-wrap" style={{ maxWidth: 420, margin: '4px auto 0' }}>
-          <SavedClusters onNeedCreds={onNeedCreds} />
+          <button className="btn-lg primary" onClick={onConnect}><Icon name="bolt" />Add your clusters</button>
+          <button className="btn-lg ghost" onClick={onConnect}>Import <span className="mono">aws eks</span> commands</button>
         </div>
 
         <div className="cards">

@@ -38,9 +38,11 @@ export interface ClusterProfile {
   id: string;
   name: string;
   region: string;
-  endpoint: string;
-  caData: string;
-  version: string;
+  // Filled in the first time the cluster is actually connected (describe); a cluster
+  // that was only registered from an `aws eks` line has just name + region until then.
+  endpoint?: string;
+  caData?: string;
+  version?: string;
   awsEndpoint?: string; // custom AWS endpoint (LocalStack / MiniStack), if one was used
   addedAt: number;      // epoch ms
   lastConnectedAt?: number;
@@ -247,6 +249,9 @@ export interface KnApi {
   aws: {
     listClusters(creds: AwsCreds): Promise<Result<EksClusterSummary[]>>;
     connect(creds: AwsCreds, clusterName: string): Promise<Result<ClusterSession>>;
+    /** Hold credentials in the main process for this session so saved clusters can be
+     *  connected without re-entry. Held in memory only; cleared on disconnect/exit. */
+    stageCreds(creds: AwsCreds): Promise<Result<null>>;
   };
   cluster: {
     status(sessionId: string): Promise<Result<ClusterStatus>>;
@@ -255,6 +260,8 @@ export interface KnApi {
   clusters: {
     /** Saved cluster profiles (no credentials), newest-connected first. */
     list(): Promise<Result<ClusterProfile[]>>;
+    /** Register clusters (name + region) without connecting — used by the bulk add flow. */
+    saveMany(items: { name: string; region: string }[]): Promise<Result<ClusterProfile[]>>;
     /**
      * Reconnect a saved cluster by reusing the creds of a live session in its region.
      * Fails with error 'NO_CREDS' when none is live — the caller then collects creds.

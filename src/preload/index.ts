@@ -10,6 +10,7 @@ const api: KnApi = {
   aws: {
     listClusters: (creds) => ipcRenderer.invoke('aws:listClusters', creds),
     connect: (creds, clusterName) => ipcRenderer.invoke('aws:connect', creds, clusterName),
+    stageCreds: (creds) => ipcRenderer.invoke('aws:stageCreds', creds),
   },
   cluster: {
     status: (sessionId) => ipcRenderer.invoke('cluster:status', sessionId),
@@ -17,6 +18,7 @@ const api: KnApi = {
   },
   clusters: {
     list: () => ipcRenderer.invoke('clusters:list'),
+    saveMany: (items) => ipcRenderer.invoke('clusters:saveMany', items),
     reconnect: (profileId) => ipcRenderer.invoke('clusters:reconnect', profileId),
     forget: (profileId) => ipcRenderer.invoke('clusters:forget', profileId),
   },

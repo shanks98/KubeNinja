@@ -85,11 +85,14 @@ export function registerIpc(): void {
     return sess(s);
   }));
 
+  ipcMain.handle('aws:stageCreds', wrap(async (rawCreds: AwsCreds) => { sessions.stage(normCreds(rawCreds)); return null; }));
+
   ipcMain.handle('cluster:status', wrap(async (id: string) => clusterStatus((await need(id)).kc)));
   ipcMain.handle('cluster:disconnect', wrap(async (id: string) => { sessions.remove(id); return null; }));
 
   // ── Saved clusters (persisted profiles, no credentials) ──────────
   ipcMain.handle('clusters:list', wrap(async () => clusterProfiles.list()));
+  ipcMain.handle('clusters:saveMany', wrap(async (items: { name: string; region: string }[]) => clusterProfiles.saveManyNames(items)));
   ipcMain.handle('clusters:forget', wrap(async (id: string) => { clusterProfiles.remove(id); return null; }));
   ipcMain.handle('clusters:reconnect', wrap(async (profileId: string): Promise<ClusterSession> => {
     const p = clusterProfiles.get(profileId);

@@ -41,6 +41,25 @@ export const clusterProfiles = {
     return created;
   },
 
+  /**
+   * Register several clusters from just their name + region (an `aws eks` list),
+   * without connecting. Existing ones are left untouched; new ones are added with no
+   * endpoint/version yet — those fill in the first time the cluster is connected.
+   */
+  saveManyNames(items: { name: string; region: string }[]): ClusterProfile[] {
+    const d = db.get();
+    for (const it of items) {
+      const name = it.name.trim();
+      const region = it.region.trim();
+      if (!name || !region) continue;
+      if (!d.clusters.some((c) => c.name === name && c.region === region)) {
+        d.clusters.push({ id: randomUUID(), name, region, addedAt: Date.now() });
+      }
+    }
+    db.save();
+    return this.list();
+  },
+
   remove(id: string): void {
     const d = db.get();
     d.clusters = d.clusters.filter((c) => c.id !== id);

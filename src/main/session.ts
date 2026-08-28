@@ -23,6 +23,12 @@ interface Live {
  */
 class SessionStore {
   private sessions = new Map<string, Live>();
+  // Credentials the user entered this session but hasn't bound to a cluster yet —
+  // lets the connect page bring up saved clusters without re-typing. Memory only.
+  private stagedCreds?: AwsCreds;
+
+  /** Hold creds for later use by the connect flow. */
+  stage(creds: AwsCreds): void { this.stagedCreds = creds; }
 
   async create(creds: AwsCreds, name: string, endpoint: string, caData: string, version: string): Promise<Live> {
     const { token, expiresAt } = await eksBearerToken(creds, name);
@@ -57,7 +63,7 @@ class SessionStore {
       if (s.region === region) return s.creds;
       fallback ??= s.creds;
     }
-    return fallback;
+    return fallback ?? this.stagedCreds;
   }
 
   remove(id: string): void {
@@ -66,6 +72,7 @@ class SessionStore {
 
   clear(): void {
     this.sessions.clear();
+    this.stagedCreds = undefined;
   }
 }
 

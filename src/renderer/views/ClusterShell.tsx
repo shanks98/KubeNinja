@@ -113,7 +113,7 @@ function ClusterSwitcher() {
   const session = useApp((s) => s.session)!;
   const switchCluster = useApp((s) => s.switchCluster);
   const removeSession = useApp((s) => s.removeSession);
-  const setAddingCluster = useApp((s) => s.setAddingCluster);
+  const setRoute = useApp((s) => s.setRoute);
   const [open, setOpen] = useState(false);
 
   const disconnect = async (id: string) => { await window.kn.cluster.disconnect(id); removeSession(id); };
@@ -143,9 +143,10 @@ function ClusterSwitcher() {
               </div>
             ))}
             <div style={{ padding: '6px 10px 2px' }}>
-              <SavedClusters compact hideConnected heading="Reconnect saved" onNeedCreds={() => { setOpen(false); setAddingCluster(true); }} />
+              <SavedClusters compact hideConnected heading="Reconnect saved" onNeedCreds={() => { setOpen(false); setRoute('reconnect'); }} />
             </div>
-            <button className="menu-item" style={{ marginTop: 4, color: 'var(--jade)' }} onClick={() => { setOpen(false); setAddingCluster(true); }}>＋ Add cluster</button>
+            <button className="menu-item" style={{ marginTop: 4 }} onClick={() => { setOpen(false); setRoute('connect'); }}>◱ Manage saved clusters</button>
+            <button className="menu-item" style={{ color: 'var(--jade)' }} onClick={() => { setOpen(false); setRoute('add'); }}>＋ Add cluster</button>
           </div>
         </>
       )}
