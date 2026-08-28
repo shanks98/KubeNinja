@@ -11,6 +11,7 @@ import {
 } from './kube/client';
 import { execInPod, execStream, execOnce, shQuote } from './kube/exec';
 import { WatchHandle } from './kube/watch';
+import { friendlyError } from './kube/errors';
 import { RESOURCES, resourceById } from './kube/resources';
 import { actionLog } from './actionLog';
 import { sessions } from './session';
@@ -37,8 +38,8 @@ function wrap<A extends unknown[], T>(fn: (...args: A) => Promise<T>) {
     try {
       return { ok: true, data: await fn(...args) };
     } catch (err) {
-      const e = err as { message?: string; name?: string };
-      return { ok: false, error: e?.message ?? String(err), code: e?.name };
+      const f = friendlyError(err);
+      return { ok: false, error: f.message, code: f.code };
     }
   };
 }

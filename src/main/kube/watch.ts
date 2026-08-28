@@ -1,6 +1,7 @@
 import { Watch, KubeConfig } from '@kubernetes/client-node';
 import type { ResourceDescriptor, WatchEvent, WatchEventType } from '@shared/types';
 import { resourcePath } from './resources';
+import { friendlyError, isAuthError } from './errors';
 
 /**
  * A single live watch on one kind (optionally namespace-scoped). Watching without
@@ -43,8 +44,11 @@ export class WatchHandle {
   }
 
   private reconnect(err: unknown): void {
+    // An auth failure (401) won't fix itself by re-minting a token the cluster
+    // rejects — surface it clearly and stop the retry loop.
+    if (isAuthError(err)) { this.emit({ type: 'ERROR', message: friendlyError(err).message }); this.stopped = true; return; }
     const msg = (err as { message?: string })?.message;
-    if (msg) this.emit({ type: 'ERROR', message: msg });
+    if (msg) this.emit({ type: 'ERROR', message: friendlyError(err).message });
     setTimeout(() => this.open(), 1500);
   }
 
