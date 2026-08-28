@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useApp } from './store';
 import { Connect } from './views/Connect';
 import { Welcome, type ConnectMethod } from './views/Welcome';
@@ -11,10 +11,18 @@ export function App() {
   const overlay = useApp((s) => s.overlay);
   const addingCluster = useApp((s) => s.addingCluster);
   const setAddingCluster = useApp((s) => s.setAddingCluster);
+  const setOverlay = useApp((s) => s.setOverlay);
   // Pre-session landing: the Welcome screen greets first; a CTA opens Connect.
   // Once one or more clusters are connected we show the active cluster's shell,
   // with Cases/Tools as overlays and "add cluster" opening Connect on top.
   const [connecting, setConnecting] = useState<ConnectMethod | null>(null);
+
+  // Native-menu actions (File → Add cluster / Cases / Tools).
+  useEffect(() => window.kn.app.onMenu((action) => {
+    if (action === 'menu:add-cluster') useApp.getState().session ? setAddingCluster(true) : setConnecting('scan');
+    else if (action === 'menu:open-cases' && useApp.getState().session) setOverlay('cases');
+    else if (action === 'menu:open-tools' && useApp.getState().session) setOverlay('tools');
+  }), [setAddingCluster, setOverlay]);
 
   if (session) {
     return <>

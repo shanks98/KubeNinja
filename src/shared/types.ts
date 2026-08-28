@@ -301,5 +301,7 @@ export interface KnApi {
     version(): Promise<string>;
     /** Capture the app window as a PNG data URL (for screenshot evidence). */
     capture(): Promise<Result<string>>;
+    /** Subscribe to native-menu actions (menu:add-cluster | menu:open-cases | menu:open-tools). */
+    onMenu(handler: (action: string) => void): () => void;
   };
 }

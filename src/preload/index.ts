@@ -116,6 +116,13 @@ const api: KnApi = {
   app: {
     version: () => ipcRenderer.invoke('app:version'),
     capture: () => ipcRenderer.invoke('app:capture'),
+    onMenu: (handler) => {
+      const listener = (_e: unknown, action: string) => handler(action);
+      for (const ch of ['menu:add-cluster', 'menu:open-cases', 'menu:open-tools']) {
+        ipcRenderer.on(ch, () => listener(null, ch));
+      }
+      return () => { for (const ch of ['menu:add-cluster', 'menu:open-cases', 'menu:open-tools']) ipcRenderer.removeAllListeners(ch); };
+    },
   },
 };
 

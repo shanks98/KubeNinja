@@ -41,9 +41,9 @@ export function Welcome({ onConnect }: { onConnect: (m: ConnectMethod) => void }
 
         <div className="foot">
           <span className="mono">v{__APP_VERSION__}</span><span className="dot" />
-          <a>Docs</a><span className="dot" />
-          <a>What's new</a><span className="dot" />
-          <a>Settings</a>
+          <a href="https://github.com/shanks98/KubeNinja#readme" target="_blank" rel="noreferrer">Docs</a><span className="dot" />
+          <a href="https://github.com/shanks98/KubeNinja/releases" target="_blank" rel="noreferrer">What's new</a><span className="dot" />
+          <a href="https://github.com/shanks98/KubeNinja" target="_blank" rel="noreferrer">GitHub</a>
         </div>
       </div>
     </div>
