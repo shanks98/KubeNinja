@@ -14,7 +14,6 @@ const CATEGORY_ORDER: ResourceCategory[] = ['Workloads', 'Config', 'Network', 'S
 
 export function ClusterShell() {
   const session = useApp((s) => s.session)!;
-  const setSession = useApp((s) => s.setSession);
   const activeResource = useApp((s) => s.activeResource);
   const setActiveResource = useApp((s) => s.setActiveResource);
   const namespace = useApp((s) => s.namespace);
@@ -40,21 +39,17 @@ export function ClusterShell() {
 
   const grouped = useMemo(() => CATEGORY_ORDER.map((cat) => ({ cat, items: descriptors.filter((d) => d.category === cat) })).filter((g) => g.items.length), [descriptors]);
 
-  const disconnect = async () => { await window.kn.cluster.disconnect(session.id); setSession(null); };
-
   return (
     <div className="shell">
       {/* title bar */}
       <div className="titlebar">
         <span style={{ fontSize: 18 }}>🥷</span>
         <b style={{ letterSpacing: '.03em' }}>Kube<span style={{ color: 'var(--jade)' }}>Ninja</span></b>
-        <span className="pill ok" style={{ marginLeft: 6 }}><span className="d" />Connected</span>
-        <span className="mono muted" style={{ fontSize: 12 }}>{session.name} · {session.region} · v{session.version}</span>
+        <ClusterSwitcher />
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
           <button className="btn sm" onClick={() => useApp.getState().setOverlay('cases')}>Cases</button>
           <button className="btn sm" onClick={() => useApp.getState().setOverlay('tools')}>Tools</button>
           <button className="btn sm" onClick={() => setShowLog(true)}>Action log</button>
-          <button className="btn sm" onClick={disconnect}>Disconnect</button>
         </div>
       </div>
 
@@ -108,6 +103,48 @@ export function ClusterShell() {
       </div>
 
       {showLog && <ActionLogModal onClose={() => setShowLog(false)} cluster={session.name} />}
+    </div>
+  );
+}
+
+function ClusterSwitcher() {
+  const sessions = useApp((s) => s.sessions);
+  const session = useApp((s) => s.session)!;
+  const switchCluster = useApp((s) => s.switchCluster);
+  const removeSession = useApp((s) => s.removeSession);
+  const setAddingCluster = useApp((s) => s.setAddingCluster);
+  const [open, setOpen] = useState(false);
+
+  const disconnect = async (id: string) => { await window.kn.cluster.disconnect(id); removeSession(id); };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button className="cluster-btn" onClick={() => setOpen((o) => !o)}>
+        <span className="pill ok"><span className="d" /></span>
+        <b>{session.name}</b>
+        <span className="mono muted" style={{ fontSize: 11 }}>{session.region} · v{session.version}</span>
+        {sessions.length > 1 && <span className="mono" style={{ fontSize: 10, color: 'var(--jade)' }}>+{sessions.length - 1}</span>}
+        <span style={{ color: 'var(--dim)' }}>▾</span>
+      </button>
+      {open && (
+        <>
+          <div className="menu-backdrop" onClick={() => setOpen(false)} />
+          <div className="menu" style={{ top: 34, left: 0, minWidth: 260 }}>
+            <div className="lbl" style={{ padding: '4px 10px' }}>Connected clusters</div>
+            {sessions.map((c) => (
+              <div key={c.id} className={'cluster-row' + (c.id === session.id ? ' on' : '')}>
+                <button className="cluster-pick" onClick={() => { switchCluster(c.id); setOpen(false); }}>
+                  <span className={'pill ' + (c.id === session.id ? 'ok' : 'off')}><span className="d" /></span>
+                  <span style={{ fontWeight: 600 }}>{c.name}</span>
+                  <span className="mono muted" style={{ fontSize: 11, marginLeft: 'auto' }}>{c.region}</span>
+                </button>
+                <button className="cluster-x" title="Disconnect" onClick={() => { void disconnect(c.id); if (sessions.length === 1) setOpen(false); }}>✕</button>
+              </div>
+            ))}
+            <button className="menu-item" style={{ marginTop: 4, color: 'var(--jade)' }} onClick={() => { setOpen(false); setAddingCluster(true); }}>＋ Add cluster</button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

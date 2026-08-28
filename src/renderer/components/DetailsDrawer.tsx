@@ -7,6 +7,7 @@ import { KubeObject } from '../kube/KubeObject';
 import { YamlEditor } from './YamlEditor';
 import { toast } from './Toast';
 import { pinEvidence } from './cases/pin';
+import { KindDetails } from './KindDetails';
 
 function cleanForYaml(obj: RawKubeObject): RawKubeObject {
   const c = structuredClone(obj);
@@ -96,6 +97,7 @@ export function DetailsDrawer() {
                 ))}</div>
               </>
             )}
+            {q.data && <KindDetails obj={q.data} resourceId={details.resourceId} />}
           </div>
         )}
 

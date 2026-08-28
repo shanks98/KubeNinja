@@ -4,8 +4,15 @@ import type { DockTab } from '../store';
 import { useApp } from '../store';
 import { pinEvidence } from './cases/pin';
 
-/** Streams logs (container follow, or `tail -F` a file) into a scrolling pane. */
-function LogView({ params, downloadName }: { params: LogParams; downloadName?: string }) {
+const TAILS = [100, 500, 2000, 10000];
+
+/** Streams logs (container follow, or `tail -F` a file) into a scrolling pane,
+ *  with container / previous / tail controls. */
+function LogView({ tab, mode }: { tab: DockTab; mode: 'logs' | 'live' | 'trace' }) {
+  const session = useApp((s) => s.session)!;
+  const [container, setContainer] = useState(tab.container);
+  const [previous, setPrevious] = useState(false);
+  const [tailLines, setTailLines] = useState(mode === 'live' ? 200 : 500);
   const [lines, setLines] = useState<string[]>([]);
   const [search, setSearch] = useState('');
   const [wrap, setWrap] = useState(false);
@@ -15,6 +22,10 @@ function LogView({ params, downloadName }: { params: LogParams; downloadName?: s
   const carry = useRef('');
   const pending = useRef<string[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const params: LogParams = mode === 'live'
+    ? { sessionId: session.id, namespace: tab.namespace, pod: tab.pod, container, filePath: tab.filePath, tailLines }
+    : { sessionId: session.id, namespace: tab.namespace, pod: tab.pod, container, follow: true, tailLines, timestamps: true, previous };
 
   useEffect(() => {
     setLines([]); setErr(undefined); carry.current = ''; pending.current = [];
@@ -46,24 +57,40 @@ function LogView({ params, downloadName }: { params: LogParams; downloadName?: s
   const shown = search ? lines.filter((l) => l.toLowerCase().includes(search.toLowerCase())) : lines;
 
   const download = async () => {
-    const r = await window.kn.logs.download(params.sessionId, params.namespace, params.pod, params.container);
+    const r = await window.kn.logs.download(session.id, tab.namespace, tab.pod, container);
     if (!r.ok) { setErr(r.error); return; }
     const url = URL.createObjectURL(new Blob([r.data], { type: 'text/plain' }));
     const a = document.createElement('a');
-    a.href = url; a.download = (downloadName ?? params.pod) + '.log'; a.click();
+    a.href = url; a.download = `${tab.pod}${container ? '-' + container : ''}.log`; a.click();
     URL.revokeObjectURL(url);
   };
 
+  const containers = tab.containers ?? (tab.container ? [tab.container] : []);
   return (
     <div className="logview">
       <div className="logbar">
-        <input className="input sm" placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: 220 }} />
-        <span className="muted mono" style={{ fontSize: 11 }}>{shown.length}/{lines.length} lines</span>
+        {containers.length > 1 && (
+          <select className="input sm" style={{ width: 'auto' }} value={container} onChange={(e) => setContainer(e.target.value)} title="Container">
+            {containers.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        )}
+        <input className="input sm" placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: 200 }} />
+        <span className="muted mono" style={{ fontSize: 11 }}>{shown.length}/{lines.length}</span>
         <label className="chk"><input type="checkbox" checked={autoscroll} onChange={(e) => setAutoscroll(e.target.checked)} />Follow</label>
         <label className="chk"><input type="checkbox" checked={wrap} onChange={(e) => setWrap(e.target.checked)} />Wrap</label>
+        {mode !== 'live' && <label className="chk"><input type="checkbox" checked={previous} onChange={(e) => setPrevious(e.target.checked)} />Previous</label>}
+        <label className="chk">Tail
+          <select className="input sm" style={{ width: 'auto', padding: '2px 4px' }} value={tailLines} onChange={(e) => setTailLines(Number(e.target.value))}>
+            {TAILS.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </label>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button className="btn sm" onClick={() => pinEvidence({ kind: 'snippet', title: `Logs · ${params.pod}${params.container ? '/' + params.container : ''}`, contentText: shown.slice(-500).join('\n'), source: `${params.namespace}/${params.pod}` })}>Pin to case</button>
-          {!params.filePath && <button className="btn sm" onClick={download}>Download</button>}
+          <button className="btn sm" title="Pins the selected lines, or the last 500" onClick={() => {
+            const sel = window.getSelection()?.toString().trim();
+            const content = sel || shown.slice(-500).join('\n');
+            pinEvidence({ kind: 'snippet', title: `Logs · ${tab.pod}${container ? '/' + container : ''}${sel ? ` (${sel.split('\n').length} lines)` : ''}`, contentText: content, source: `${tab.namespace}/${tab.pod}` });
+          }}>Pin to case</button>
+          {mode !== 'live' && <button className="btn sm" onClick={download}>Download</button>}
           <button className="btn sm" onClick={() => setLines([])}>Clear</button>
         </div>
       </div>
@@ -120,19 +147,14 @@ function TraceControls({ tab }: { tab: DockTab }) {
 }
 
 export function LogsDockPanel({ tab }: { tab: DockTab }) {
-  const session = useApp((s) => s.session)!;
-  const base = { sessionId: session.id, namespace: tab.namespace, pod: tab.pod, container: tab.container };
-
-  if (tab.mode === 'live') {
-    return <LogView params={{ ...base, filePath: tab.filePath, tailLines: 200 }} />;
-  }
+  if (tab.mode === 'live') return <LogView tab={tab} mode="live" />;
   if (tab.mode === 'trace') {
     return (
       <div className="tracepanel">
         <TraceControls tab={tab} />
-        <LogView params={{ ...base, follow: true, tailLines: 500, timestamps: true }} />
+        <LogView tab={tab} mode="trace" />
       </div>
     );
   }
-  return <LogView params={{ ...base, follow: true, tailLines: 500, timestamps: true }} downloadName={tab.pod} />;
+  return <LogView tab={tab} mode="logs" />;
 }

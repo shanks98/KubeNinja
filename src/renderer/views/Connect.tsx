@@ -7,8 +7,8 @@ import type { ConnectMethod } from './Welcome';
 
 const REGIONS = ['ap-south-1', 'us-east-1', 'us-west-2', 'eu-west-1', 'eu-central-1', 'ap-southeast-1'];
 
-export function Connect({ method: initialMethod, onBack }: { method: ConnectMethod; onBack: () => void }) {
-  const setSession = useApp((s) => s.setSession);
+export function Connect({ method: initialMethod, onBack, asOverlay }: { method: ConnectMethod; onBack: () => void; asOverlay?: boolean }) {
+  const addSession = useApp((s) => s.addSession);
   const [method, setMethod] = useState<ConnectMethod>(initialMethod);
   const [creds, setCreds] = useState<AwsCreds>({ accessKeyId: '', secretAccessKey: '', sessionToken: '', region: 'ap-south-1', endpoint: '' });
   const [clusters, setClusters] = useState<EksClusterSummary[] | null>(null);
@@ -33,7 +33,7 @@ export function Connect({ method: initialMethod, onBack }: { method: ConnectMeth
       if (!r.ok) throw new Error(r.error);
       return r.data;
     },
-    onSuccess: setSession,
+    onSuccess: addSession,
   });
 
   const hasCreds = !!creds.accessKeyId && !!creds.secretAccessKey;
@@ -50,9 +50,9 @@ export function Connect({ method: initialMethod, onBack }: { method: ConnectMeth
   const switchMethod = (m: ConnectMethod) => { setMethod(m); scan.reset(); connect.reset(); };
 
   return (
-    <div style={{ height: '100vh', display: 'grid', placeItems: 'center', padding: 24, overflow: 'auto' }}>
+    <div style={{ ...(asOverlay ? { position: 'fixed', inset: 0, zIndex: 55, background: 'var(--bg)' } : { height: '100vh' }), display: 'grid', placeItems: 'center', padding: 24, overflow: 'auto' }}>
       <div style={{ width: 'min(480px, 100%)' }}>
-        <button className="btn sm" style={{ marginBottom: 14 }} onClick={onBack}>← Back</button>
+        <button className="btn sm" style={{ marginBottom: 14 }} onClick={onBack}>{asOverlay ? '← Cancel' : '← Back'}</button>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
           <h1 style={{ fontSize: 22, letterSpacing: '.02em' }}>Connect a cluster</h1>

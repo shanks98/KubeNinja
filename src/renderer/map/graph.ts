@@ -39,7 +39,7 @@ export function buildGraph(byKind: Record<string, RawKubeObject[]>): ResourceGra
     nodes.push({ id, kind: o.kind ?? resourceId, name: o.metadata.name ?? '', namespace: o.metadata.namespace, status, resourceId });
   };
 
-  const RID: Record<string, string> = { Pod: 'pods', Deployment: 'deployments', ReplicaSet: 'replicasets', StatefulSet: 'statefulsets', DaemonSet: 'daemonsets', Job: 'jobs', CronJob: 'cronjobs', Service: 'services', Ingress: 'ingresses', PersistentVolumeClaim: 'persistentvolumeclaims', ConfigMap: 'configmaps', Secret: 'secrets' };
+  const RID: Record<string, string> = { Pod: 'pods', Deployment: 'deployments', ReplicaSet: 'replicasets', StatefulSet: 'statefulsets', DaemonSet: 'daemonsets', Job: 'jobs', CronJob: 'cronjobs', Service: 'services', Ingress: 'ingresses', PersistentVolumeClaim: 'persistentvolumeclaims', PersistentVolume: 'persistentvolumes', ConfigMap: 'configmaps', Secret: 'secrets', HorizontalPodAutoscaler: 'horizontalpodautoscalers' };
   for (const [rid, list] of Object.entries(byKind)) {
     for (const o of list ?? []) {
       const kind = o.kind ?? '';
@@ -80,6 +80,24 @@ export function buildGraph(byKind: Record<string, RawKubeObject[]>): ResourceGra
       const db = spec?.defaultBackend?.service?.name; if (db) backends.push(db);
       for (const r of spec?.rules ?? []) for (const path of r.http?.paths ?? []) { const n = path.backend?.service?.name; if (n) backends.push(n); }
       for (const svc of backends) { const t = nameToUid('Service', ns, svc); if (t) link(id, t, 'routes'); }
+    }
+
+    if (o.kind === 'HorizontalPodAutoscaler') {
+      const ref = spec?.scaleTargetRef;
+      if (ref?.name) { const t = nameToUid(ref.kind, ns, ref.name); if (t) link(id, t, 'scales'); }
+    }
+
+    if (o.kind === 'PersistentVolumeClaim') {
+      const vol = spec?.volumeName;
+      if (vol) { const t = nameToUid('PersistentVolume', undefined, vol); if (t) link(id, t, 'mounts'); }
+    }
+
+    if (o.kind === 'NetworkPolicy') {
+      const sel = spec?.podSelector?.matchLabels;
+      if (sel && Object.keys(sel).length) for (const p of byKind.pods ?? []) {
+        const labels = p.metadata.labels ?? {};
+        if (Object.entries(sel as Record<string, string>).every(([k, v]) => labels[k] === v)) link(id, uid(p), 'selects');
+      }
     }
 
     if (o.kind === 'Pod') {

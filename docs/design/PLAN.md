@@ -62,6 +62,18 @@ Each slice is independently runnable and verifiable. Build order:
 - [x] Verify: 41 tests (graph builder + prior); typecheck + build green; both views driven via the
       mock bridge. Live Helm run needs a real cluster + the bundled binary.
 
+## v1.1 — functional-gap pass  ✅
+- [x] **Multi-cluster**: hold many connected clusters; titlebar cluster switcher (switch / disconnect /
+      add without dropping others); per-cluster view state resets on switch.
+- [x] **Core IDE depth**: container picker on logs/exec; log controls (previous + tail); rich per-kind
+      details (pods/workloads/services/ingress/configmap/secret/pvc/node); reveal-secret decode.
+- [x] **Cases depth**: comments tab (case- or finding-scoped); cross-case search; timeline scoped to
+      actions since the case opened; line-pinned log snippets (pins the selection).
+- [x] **Helm depth**: namespace filter; install/upgrade modal with a values YAML editor; `helm repo add`
+      + chart search.
+- [x] **Resource map depth**: auto-refresh (15s); zoom / pan / node-drag; HPA→workload, PVC→PV and
+      NetworkPolicy→pod edges. Tests: graph builder (3).
+
 ## Deferred to v2
 - Observability (Prometheus PromQL + Loki LogQL panels + sparklines).
 

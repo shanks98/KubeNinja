@@ -27,6 +27,21 @@ describe('buildGraph', () => {
     expect(graph.nodes.find((n) => n.id === 'Pod-web-1')?.status).toBe('ok');
   });
 
+  it('links HPA→workload, PVC→PV, and NetworkPolicy→pod', () => {
+    const graph = buildGraph({
+      pods: [o('Pod', 'web-1', { metadata: { uid: 'Pod-web-1', name: 'web-1', namespace: 'shop', labels: { app: 'web' } } })],
+      deployments: [o('Deployment', 'web')],
+      horizontalpodautoscalers: [o('HorizontalPodAutoscaler', 'web-hpa', { spec: { scaleTargetRef: { kind: 'Deployment', name: 'web' } } })],
+      persistentvolumeclaims: [o('PersistentVolumeClaim', 'web-data', { spec: { volumeName: 'pv-123' } })],
+      persistentvolumes: [{ kind: 'PersistentVolume', metadata: { uid: 'PersistentVolume-pv-123', name: 'pv-123' }, status: { phase: 'Bound' } }],
+      networkpolicies: [o('NetworkPolicy', 'deny', { spec: { podSelector: { matchLabels: { app: 'web' } } } })],
+    });
+    const has = (s: string, t: string, k: string) => graph.edges.some((e) => e.source === s && e.target === t && e.kind === k);
+    expect(has('HorizontalPodAutoscaler-web-hpa', 'Deployment-web', 'scales')).toBe(true);
+    expect(has('PersistentVolumeClaim-web-data', 'PersistentVolume-pv-123', 'mounts')).toBe(true);
+    expect(has('NetworkPolicy-deny', 'Pod-web-1', 'selects')).toBe(true);
+  });
+
   it('does not link a service to a pod that does not match the selector', () => {
     const graph = buildGraph({
       pods: [o('Pod', 'api-1', { metadata: { uid: 'Pod-api-1', name: 'api-1', namespace: 'shop', labels: { app: 'api' } } })],

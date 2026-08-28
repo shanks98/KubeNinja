@@ -73,9 +73,12 @@ export const cases = {
     const c = d.cases.find((x) => x.id === id);
     const items: TimelineItem[] = [];
     for (const e of d.events.filter((e) => e.caseId === id)) items.push({ ts: e.ts, kind: 'event', text: e.text });
-    // Fold in the audit log for this case's cluster (or all, if the case has none).
+    // Fold in the audit log for this case's cluster — but only actions that
+    // occurred at/after the case was opened, so the timeline reflects the
+    // investigation window rather than the cluster's entire history.
     for (const a of d.actionLog) {
       if (c?.cluster && a.cluster !== c.cluster) continue;
+      if (c && a.ts < c.createdAt) continue;
       items.push({ ts: a.ts, kind: 'action', verb: a.verb, ok: a.ok, text: `${a.verb} ${a.kind}/${a.name}${a.namespace ? ` · ${a.namespace}` : ''}${a.detail ? ` · ${a.detail}` : ''}${a.error ? ` — ${a.error}` : ''}` });
     }
     return items.sort((a, b) => b.ts - a.ts);

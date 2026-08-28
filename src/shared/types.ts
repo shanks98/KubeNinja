@@ -203,11 +203,13 @@ export interface CertResult {
 // ── Helm (Slice 4) ─────────────────────────────────────────────────────
 export interface HelmRelease { name: string; namespace: string; revision: number; updated: string; status: string; chart: string; appVersion: string }
 export interface HelmHistoryEntry { revision: number; updated: string; status: string; chart: string; appVersion: string; description: string }
+export interface HelmChart { name: string; version: string; appVersion: string; description: string }
+export interface HelmRepo { name: string; url: string }
 
 // ── Resource map (Slice 4) ─────────────────────────────────────────────
 export type GraphNodeKind = string;
 export interface GraphNode { id: string; kind: string; name: string; namespace?: string; status?: 'ok' | 'warn' | 'err' | 'off'; resourceId?: string }
-export interface GraphEdge { source: string; target: string; kind: 'owns' | 'routes' | 'selects' | 'mounts' | 'uses' }
+export interface GraphEdge { source: string; target: string; kind: 'owns' | 'routes' | 'selects' | 'mounts' | 'uses' | 'scales' }
 export interface ResourceGraph { nodes: GraphNode[]; edges: GraphEdge[] }
 
 /** Handle to an interactive exec session (renderer side). */
@@ -287,9 +289,13 @@ export interface KnApi {
     values(sessionId: string, name: string, namespace: string): Promise<Result<string>>;
     manifest(sessionId: string, name: string, namespace: string): Promise<Result<string>>;
     rollback(sessionId: string, name: string, namespace: string, revision: number): Promise<Result<string>>;
-    upgrade(sessionId: string, name: string, namespace: string, chart: string, version?: string): Promise<Result<string>>;
-    install(sessionId: string, name: string, namespace: string, chart: string, version?: string): Promise<Result<string>>;
+    upgrade(sessionId: string, name: string, namespace: string, chart: string, version?: string, values?: string): Promise<Result<string>>;
+    install(sessionId: string, name: string, namespace: string, chart: string, version?: string, values?: string): Promise<Result<string>>;
     uninstall(sessionId: string, name: string, namespace: string): Promise<Result<string>>;
+    repoList(): Promise<Result<HelmRepo[]>>;
+    repoAdd(name: string, url: string): Promise<Result<string>>;
+    repoRemove(name: string): Promise<Result<string>>;
+    search(term: string): Promise<Result<HelmChart[]>>;
   };
   app: {
     version(): Promise<string>;

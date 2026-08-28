@@ -91,6 +91,14 @@ textarea.input { resize: vertical; line-height: 1.55; }
 .chk { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--muted); cursor: pointer; }
 
 .shell { height: 100vh; display: flex; flex-direction: column; }
+.cluster-btn { display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px; margin-left: 6px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); font-size: 12.5px; }
+.cluster-btn:hover { border-color: var(--border-2); }
+.cluster-row { display: flex; align-items: center; border-radius: 6px; }
+.cluster-row.on { background: var(--jade-dim); }
+.cluster-pick { flex: 1; display: flex; align-items: center; gap: 8px; text-align: left; padding: 7px 10px; border-radius: 6px; color: var(--text); font-size: 12.5px; }
+.cluster-pick:hover { background: var(--row); }
+.cluster-x { color: var(--dim); font-size: 11px; padding: 0 10px; }
+.cluster-x:hover { color: var(--danger); }
 .titlebar { height: 40px; display: flex; align-items: center; gap: 12px; padding: 0 14px; border-bottom: 1px solid var(--border); background: linear-gradient(180deg,#0e1119,#0a0c11); flex-shrink: 0; }
 .shell-main { flex: 1; display: flex; min-height: 0; position: relative; }
 
@@ -156,6 +164,8 @@ textarea.input { resize: vertical; line-height: 1.55; }
 .tracepanel { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .tracebar { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 .tracebar .lbl { margin: 0 0 0 4px; }
+.xterm-panel { flex: 1; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.xterm-bar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--border); }
 .xterm-host { flex: 1; min-height: 0; min-width: 0; padding: 6px 8px; background: #0a0c11; overflow: hidden; }
 
 .overlay { position: fixed; inset: 0; background: rgba(6,9,13,.72); backdrop-filter: blur(3px); display: none; align-items: center; justify-content: center; z-index: 60; padding: 24px; }

@@ -7,7 +7,10 @@ import { notifyResult, toast } from './Toast';
 export interface Action { label: string; danger?: boolean; run: () => void | Promise<void> }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function containers(o: KubeObject): string[] { return ((o.raw.spec as any)?.containers ?? []).map((c: any) => c.name); }
+function containers(o: KubeObject): string[] {
+  const spec = o.raw.spec as any;
+  return [...(spec?.initContainers ?? []), ...(spec?.containers ?? []), ...(spec?.ephemeralContainers ?? [])].map((c: any) => c.name);
+}
 
 /**
  * The context actions for an object, mirroring Freelens's per-kind menu items:
@@ -27,14 +30,15 @@ export function useResourceActions() {
     const acts: Action[] = [];
 
     if (d.id === 'pods') {
-      const c0 = containers(o)[0];
-      acts.push({ label: 'Logs', run: () => openDock({ id: `logs:${uid}`, mode: 'logs', title: `Logs · ${name}`, namespace: ns!, pod: name, container: c0 }) });
-      acts.push({ label: 'Exec / Shell', run: () => openDock({ id: `exec:${uid}`, mode: 'exec', title: `Shell · ${name}`, namespace: ns!, pod: name, container: c0 }) });
+      const cs = containers(o);
+      const c0 = cs[0];
+      acts.push({ label: 'Logs', run: () => openDock({ id: `logs:${uid}`, mode: 'logs', title: `Logs · ${name}`, namespace: ns!, pod: name, container: c0, containers: cs }) });
+      acts.push({ label: 'Exec / Shell', run: () => openDock({ id: `exec:${uid}`, mode: 'exec', title: `Shell · ${name}`, namespace: ns!, pod: name, container: c0, containers: cs }) });
       acts.push({ label: 'Live file tail…', run: async () => {
         const f = await promptDialog({ title: 'Live file tail', label: 'File path inside the container', initial: '/var/log/app.log', okLabel: 'Tail' });
-        if (f) openDock({ id: `live:${uid}:${f}`, mode: 'live', title: `Live · ${name}`, namespace: ns!, pod: name, container: c0, filePath: f });
+        if (f) openDock({ id: `live:${uid}:${f}`, mode: 'live', title: `Live · ${name}`, namespace: ns!, pod: name, container: c0, containers: cs, filePath: f });
       } });
-      acts.push({ label: 'Trace (log level)…', run: () => openDock({ id: `trace:${uid}`, mode: 'trace', title: `Trace · ${name}`, namespace: ns!, pod: name, container: c0 }) });
+      acts.push({ label: 'Trace (log level)…', run: () => openDock({ id: `trace:${uid}`, mode: 'trace', title: `Trace · ${name}`, namespace: ns!, pod: name, container: c0, containers: cs }) });
     }
 
     if (['deployments', 'statefulsets', 'replicasets'].includes(d.id)) {

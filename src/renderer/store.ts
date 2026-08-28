@@ -12,11 +12,14 @@ export interface DockTab {
   namespace: string;
   pod: string;
   container?: string;
+  containers?: string[]; // all containers on the pod (for the picker)
   filePath?: string; // for 'live'
 }
 
 interface AppState {
-  session: ClusterSession | null;
+  sessions: ClusterSession[];   // every connected cluster (held in the main process too)
+  session: ClusterSession | null; // the active one
+  addingCluster: boolean;       // the "add a cluster" connect flow is open
   activeResource: string; // selected kind id in the sidebar
   namespace: string; // '' = all namespaces
   details: ObjectRef | null;
@@ -25,7 +28,11 @@ interface AppState {
   overlay: 'cases' | 'tools' | null;
   selectedCase: string | null;
 
-  setSession: (s: ClusterSession | null) => void;
+  addSession: (s: ClusterSession) => void;
+  switchCluster: (id: string) => void;
+  removeSession: (id: string) => void;
+  clearSessions: () => void;
+  setAddingCluster: (v: boolean) => void;
   setOverlay: (o: AppState['overlay']) => void;
   setSelectedCase: (id: string | null) => void;
   setActiveResource: (id: string) => void;
@@ -36,8 +43,14 @@ interface AppState {
   setDockActive: (id: string | null) => void;
 }
 
+// Per-cluster view state is reset when the active cluster changes (dock streams,
+// the details drawer and the namespace filter all belong to a specific cluster).
+const reset = (): Pick<AppState, 'details' | 'dock' | 'dockActive' | 'namespace'> => ({ details: null, dock: [], dockActive: null, namespace: '' });
+
 export const useApp = create<AppState>((set) => ({
+  sessions: [],
   session: null,
+  addingCluster: false,
   activeResource: 'pods',
   namespace: '',
   details: null,
@@ -46,7 +59,22 @@ export const useApp = create<AppState>((set) => ({
   overlay: null,
   selectedCase: null,
 
-  setSession: (session) => set({ session, details: null, dock: [], dockActive: null, overlay: null }),
+  addSession: (s) => set((st) => ({
+    sessions: st.sessions.some((x) => x.id === s.id) ? st.sessions : [...st.sessions, s],
+    session: s, addingCluster: false, overlay: null, ...reset(),
+  })),
+  switchCluster: (id) => set((st) => {
+    const session = st.sessions.find((x) => x.id === id) ?? null;
+    return session ? { session, ...reset() } : {};
+  }),
+  removeSession: (id) => set((st) => {
+    const sessions = st.sessions.filter((x) => x.id !== id);
+    if (st.session?.id !== id) return { sessions };
+    const session = sessions[sessions.length - 1] ?? null;
+    return { sessions, session, ...reset() };
+  }),
+  clearSessions: () => set({ sessions: [], session: null, ...reset(), overlay: null }),
+  setAddingCluster: (addingCluster) => set({ addingCluster }),
   setOverlay: (overlay) => set({ overlay }),
   setSelectedCase: (selectedCase) => set({ selectedCase }),
   setActiveResource: (activeResource) => set({ activeResource, details: null }),

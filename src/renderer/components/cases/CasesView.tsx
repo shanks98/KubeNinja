@@ -18,7 +18,10 @@ export function CasesView() {
   const session = useApp((s) => s.session);
   const qc = useQueryClient();
 
+  const [search, setSearch] = useState('');
   const cases = useQuery({ queryKey: ['cases'], queryFn: async () => { const r = await window.kn.cases.list(); if (!r.ok) throw new Error(r.error); return r.data; } });
+  const q = search.trim().toLowerCase();
+  const filtered = (cases.data ?? []).filter((c) => !q || c.title.toLowerCase().includes(q) || (c.cluster ?? '').toLowerCase().includes(q) || c.rollup.top === q);
 
   const newCase = async () => {
     const title = await promptDialog({ title: 'New case', label: 'Case title', okLabel: 'Create' });
@@ -40,8 +43,10 @@ export function CasesView() {
       </div>
       <div className="cases-main">
         <div className="case-list">
+          <input className="input sm" placeholder="Search cases…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ marginBottom: 10 }} />
           {cases.data?.length === 0 && <div className="muted" style={{ padding: 16, fontSize: 12.5 }}>No cases yet. Create one, or pin evidence from the cluster view.</div>}
-          {(cases.data ?? []).map((c) => <CaseCard key={c.id} c={c} active={c.id === selected} onClick={() => setSelected(c.id)} />)}
+          {filtered.map((c) => <CaseCard key={c.id} c={c} active={c.id === selected} onClick={() => setSelected(c.id)} />)}
+          {cases.data && cases.data.length > 0 && filtered.length === 0 && <div className="muted" style={{ padding: 12, fontSize: 12 }}>No cases match “{search}”.</div>}
         </div>
         <div className="case-detail">
           {selected ? <CaseDetailView key={selected} id={selected} /> : <div className="muted" style={{ padding: 30, textAlign: 'center' }}>Select a case, or create one.</div>}
@@ -67,7 +72,7 @@ function CaseCard({ c, active, onClick }: { c: CaseSummary; active: boolean; onC
 function CaseDetailView({ id }: { id: string }) {
   const qc = useQueryClient();
   const setSelected = useApp((s) => s.setSelectedCase);
-  const [tab, setTab] = useState<'findings' | 'timeline' | 'evidence' | 'report'>('findings');
+  const [tab, setTab] = useState<'findings' | 'timeline' | 'evidence' | 'comments' | 'report'>('findings');
   const q = useQuery({ queryKey: ['case', id], queryFn: async () => { const r = await window.kn.cases.get(id); if (!r.ok) throw new Error(r.error); return r.data; } });
   const refresh = () => { qc.invalidateQueries({ queryKey: ['case', id] }); qc.invalidateQueries({ queryKey: ['cases'] }); };
 
@@ -101,15 +106,16 @@ function CaseDetailView({ id }: { id: string }) {
         </div>
       </div>
       <div className="drawer-tabs" style={{ padding: '0 16px' }}>
-        {(['findings', 'timeline', 'evidence', 'report'] as const).map((t) => (
+        {(['findings', 'timeline', 'evidence', 'comments', 'report'] as const).map((t) => (
           <button key={t} className={'dtab' + (t === tab ? ' on' : '')} onClick={() => setTab(t)}>{t[0].toUpperCase() + t.slice(1)}
-            {t === 'findings' ? ` (${d.findings.length})` : t === 'evidence' ? ` (${d.evidence.length})` : ''}</button>
+            {t === 'findings' ? ` (${d.findings.length})` : t === 'evidence' ? ` (${d.evidence.length})` : t === 'comments' ? ` (${d.comments.length})` : ''}</button>
         ))}
       </div>
       <div className="cd-body">
         {tab === 'findings' && <Findings d={d} onChange={refresh} />}
         {tab === 'timeline' && <Timeline d={d} />}
         {tab === 'evidence' && <EvidencePanel d={d} onChange={refresh} />}
+        {tab === 'comments' && <Comments d={d} onChange={refresh} />}
         {tab === 'report' && <ReportPanel id={id} title={d.case.title} />}
       </div>
     </div>
@@ -228,6 +234,43 @@ function EvidenceCard({ e, onRemove }: { e: Evidence; onRemove: () => void }) {
       {e.kind === 'screenshot'
         ? (img.data ? <img src={img.data} alt={e.title} style={{ maxWidth: '100%', borderRadius: 8, marginTop: 8, border: '1px solid var(--border)' }} /> : <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Loading image…</div>)
         : <pre className="evtext">{e.contentText}</pre>}
+    </div>
+  );
+}
+
+function Comments({ d, onChange }: { d: CaseDetail; onChange: () => void }) {
+  const [text, setText] = useState('');
+  const [findingId, setFindingId] = useState('');
+  const add = async () => {
+    if (!text.trim()) return;
+    const r = await window.kn.cases.addComment(d.case.id, { text: text.trim(), findingId: findingId || undefined });
+    if (r.ok) { setText(''); onChange(); } else toast(r.error);
+  };
+  const findingTitle = (fid?: string) => d.findings.find((f) => f.id === fid)?.title;
+  return (
+    <div>
+      <div className="card" style={{ marginBottom: 12 }}>
+        <textarea className="input mono" style={{ minHeight: 56, fontSize: 12 }} placeholder="Add a comment / note…" value={text} onChange={(e) => setText(e.target.value)} />
+        <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
+          {d.findings.length > 0 && (
+            <select className="input sm" style={{ width: 'auto' }} value={findingId} onChange={(e) => setFindingId(e.target.value)}>
+              <option value="">Whole case</option>
+              {d.findings.map((f) => <option key={f.id} value={f.id}>on: {f.title}</option>)}
+            </select>
+          )}
+          <button className="btn sm primary" disabled={!text.trim()} style={{ marginLeft: 'auto' }} onClick={add}>Comment</button>
+        </div>
+      </div>
+      {d.comments.length === 0 && <div className="muted" style={{ padding: 8 }}>No comments yet.</div>}
+      {[...d.comments].sort((a, b) => b.createdAt - a.createdAt).map((c) => (
+        <div key={c.id} className="finding" style={{ alignItems: 'flex-start' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {c.findingId && <div className="lbl" style={{ marginBottom: 3 }}>on: {findingTitle(c.findingId) ?? 'finding'}</div>}
+            <div style={{ fontSize: 12.5, whiteSpace: 'pre-wrap' }}>{c.text}</div>
+            <div className="mono muted" style={{ fontSize: 11, marginTop: 4 }}>{new Date(c.createdAt).toLocaleString()}</div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

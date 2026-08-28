@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import type { KubeConfig } from '@kubernetes/client-node';
-import type { HelmRelease, HelmHistoryEntry } from '@shared/types';
+import type { HelmRelease, HelmHistoryEntry, HelmChart, HelmRepo } from '@shared/types';
 import { sessions } from './session';
 
 /** Resolve the bundled helm binary for this platform (packaged vs dev). */
@@ -83,9 +83,36 @@ export const helmManifest = (sessionId: string, name: string, ns: string) => run
 export const helmNotes = (sessionId: string, name: string, ns: string) => runHelm(sessionId, ['get', 'notes', name, '-n', ns]);
 export const helmRollback = (sessionId: string, name: string, ns: string, revision: number) => runHelm(sessionId, ['rollback', name, String(revision), '-n', ns, '--wait', '--timeout', '2m']);
 export const helmUninstall = (sessionId: string, name: string, ns: string) => runHelm(sessionId, ['uninstall', name, '-n', ns]);
-export function helmUpgrade(sessionId: string, name: string, ns: string, chart: string, version?: string) {
-  return runHelm(sessionId, ['upgrade', name, chart, '-n', ns, ...(version ? ['--version', version] : []), '--wait', '--timeout', '3m']);
+
+// Install/upgrade optionally take a values YAML (written to a temp -f file, deleted after).
+async function withValues<T>(values: string | undefined, fn: (extra: string[]) => Promise<T>): Promise<T> {
+  if (!values || !values.trim()) return fn([]);
+  const dir = join(tmpdir(), 'kubeninja'); mkdirSync(dir, { recursive: true });
+  const vf = join(dir, `values-${randomUUID()}.yaml`);
+  writeFileSync(vf, values, { mode: 0o600 });
+  try { return await fn(['-f', vf]); } finally { try { rmSync(vf, { force: true }); } catch { /* best-effort */ } }
 }
-export function helmInstall(sessionId: string, name: string, ns: string, chart: string, version?: string) {
-  return runHelm(sessionId, ['install', name, chart, '-n', ns, '--create-namespace', ...(version ? ['--version', version] : []), '--wait', '--timeout', '3m']);
+export function helmUpgrade(sessionId: string, name: string, ns: string, chart: string, version?: string, values?: string) {
+  return withValues(values, (extra) => runHelm(sessionId, ['upgrade', name, chart, '-n', ns, ...(version ? ['--version', version] : []), ...extra, '--wait', '--timeout', '3m']));
+}
+export function helmInstall(sessionId: string, name: string, ns: string, chart: string, version?: string, values?: string) {
+  return withValues(values, (extra) => runHelm(sessionId, ['install', name, chart, '-n', ns, '--create-namespace', ...(version ? ['--version', version] : []), ...extra, '--wait', '--timeout', '3m']));
+}
+
+// ── Repositories + chart search (no cluster needed) ───────────────────
+function runHelmPlain(args: string[]): Promise<string> {
+  if (!helmAvailable()) throw new Error('helm binary not bundled with this build');
+  return new Promise((resolve, reject) => {
+    execFile(helmPath(), args, { timeout: 60_000, maxBuffer: 16 * 1024 * 1024, windowsHide: true },
+      (err, stdout, stderr) => (err ? reject(new Error((stderr || err.message).toString().trim())) : resolve(stdout.toString())));
+  });
+}
+export const helmRepoAdd = (name: string, url: string) => runHelmPlain(['repo', 'add', name, url, '--force-update']).then(() => runHelmPlain(['repo', 'update', name])).then(() => `added ${name}`);
+export const helmRepoRemove = (name: string) => runHelmPlain(['repo', 'remove', name]);
+export async function helmRepoList(): Promise<HelmRepo[]> {
+  try { return JSON.parse(await runHelmPlain(['repo', 'list', '-o', 'json']) || '[]') as HelmRepo[]; } catch { return []; }
+}
+export async function helmSearch(term: string): Promise<HelmChart[]> {
+  const raw = JSON.parse(await runHelmPlain(['search', 'repo', term, '-o', 'json']) || '[]') as { name: string; version: string; app_version: string; description: string }[];
+  return raw.map((c) => ({ name: c.name, version: c.version, appVersion: c.app_version, description: c.description }));
 }

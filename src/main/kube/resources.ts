@@ -21,6 +21,7 @@ export const RESOURCES: ResourceDescriptor[] = [
   d('replicasets', 'ReplicaSet', 'apps/v1', 'replicasets', true, 'Workloads'),
   d('jobs', 'Job', 'batch/v1', 'jobs', true, 'Workloads'),
   d('cronjobs', 'CronJob', 'batch/v1', 'cronjobs', true, 'Workloads'),
+  d('horizontalpodautoscalers', 'HorizontalPodAutoscaler', 'autoscaling/v2', 'horizontalpodautoscalers', true, 'Workloads'),
   // Network
   d('services', 'Service', 'v1', 'services', true, 'Network'),
   d('ingresses', 'Ingress', 'networking.k8s.io/v1', 'ingresses', true, 'Network'),
