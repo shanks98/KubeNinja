@@ -61,6 +61,16 @@ npm run pack:portable  # build a standalone app → dist/KubeNinja-win-x64/KubeN
 `npm run dev` opens the app with live reload. `npm run pack:portable` produces the portable folder
 from Option A.
 
+> **Windows / PowerShell note.** The command is plain `npm install` (not `cmd.npm install`). If
+> PowerShell refuses with *"running scripts is disabled on this system"*, do **one** of:
+> - allow signed scripts for your user (recommended): `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, then `npm install`
+> - call the shim directly: `npm.cmd install` (and `npm.cmd run dev`, `npm.cmd run pack:portable`, …)
+> - run it through cmd: `cmd /c "npm install"`
+>
+> First check Node is installed and 20+: `node -v`. If it's missing, install the LTS from
+> [nodejs.org](https://nodejs.org) and reopen the terminal. (Downloading the repo as a ZIP is fine —
+> unzip it, `cd` into the folder, then run the commands above.)
+
 ### First connect
 
 KubeNinja never reads a kubeconfig — you paste **AWS session credentials** and it mints an EKS
