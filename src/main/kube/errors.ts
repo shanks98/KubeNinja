@@ -22,7 +22,7 @@ export function friendlyError(err: unknown): { message: string; code?: string } 
   if (s === 401 || /unauthorized/i.test(msg)) {
     return {
       code: '401',
-      message: 'Unauthorized — the cluster rejected this AWS identity. The credentials work with AWS, but the IAM principal is not granted Kubernetes access on this cluster (aws-auth ConfigMap / EKS Access Entry). Connect with the identity you use for kubectl on this cluster, or add an EKS access entry for it.',
+      message: 'Unauthorized — the cluster rejected the token. If the same AWS identity works with kubectl, reconnect (the token may have expired). Otherwise this IAM principal is not granted Kubernetes access on this cluster — connect with the identity you use for kubectl, or add it to the aws-auth ConfigMap / an EKS Access Entry.',
     };
   }
   if (s === 403 || /forbidden/i.test(msg)) {

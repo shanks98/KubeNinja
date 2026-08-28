@@ -4,7 +4,12 @@ import { Sha256 } from '@aws-crypto/sha256-js';
 import type { AwsCreds } from '@shared/types';
 
 const CLUSTER_HEADER = 'x-k8s-aws-id';
-const EXPIRES = 60; // STS presign TTL (seconds); the token itself is EKS-valid ~15m.
+// STS presign TTL (seconds) = the token's *actual* validity window. This is the max
+// aws-iam-authenticator accepts (15m) and matches what aws-iam-authenticator / eksctl
+// / the Go SDK use. It MUST cover the session's token-reuse window (see session.ts,
+// which re-mints ~12m in) AND leave slack for client/STS clock skew — a short window
+// (e.g. 60s) makes every call after it, and any skewed clock, fail cluster auth with 401.
+const EXPIRES = 900;
 
 function base64UrlNoPad(s: string): string {
   return Buffer.from(s, 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -67,7 +72,8 @@ export async function eksBearerToken(creds: AwsCreds, clusterName: string): Prom
 
   return {
     token: 'k8s-aws-v1.' + base64UrlNoPad(url),
-    // EKS accepts the token for ~15 minutes regardless of the 60s presign window.
+    // Re-mint a minute before the 15m presign actually expires (session.get re-mints
+    // ~2m before this), so a fresh, unexpired token is always used for cluster calls.
     expiresAt: Date.now() + 14 * 60 * 1000,
   };
 }
