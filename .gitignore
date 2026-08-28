@@ -6,3 +6,6 @@ dist/
 .env
 .vite/
 *.tsbuildinfo
+
+# bundled third-party binaries (fetched via scripts/fetch-helm.mjs)
+resources/bin/

@@ -48,4 +48,15 @@ writeFileSync(join(appDir, 'package.json'), JSON.stringify({
   type: 'module',
 }, null, 2));
 
+// 3. Bundled helm binary → resources/bin/helm.exe (process.resourcesPath/bin)
+const helmSrc = join('resources', 'bin', 'helm-win-x64.exe');
+if (existsSync(helmSrc)) {
+  const binDir = join(dest, 'resources', 'bin');
+  mkdirSync(binDir, { recursive: true });
+  cpSync(helmSrc, join(binDir, 'helm.exe'));
+  console.log('bundled helm.exe');
+} else {
+  console.warn('⚠ resources/bin/helm-win-x64.exe missing — run `node scripts/fetch-helm.mjs` (Helm actions will be disabled)');
+}
+
 console.log(`done → ${join(dest, 'KubeNinja.exe')}`);

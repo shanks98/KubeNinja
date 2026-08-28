@@ -200,6 +200,16 @@ export interface CertResult {
   error?: string;
 }
 
+// ── Helm (Slice 4) ─────────────────────────────────────────────────────
+export interface HelmRelease { name: string; namespace: string; revision: number; updated: string; status: string; chart: string; appVersion: string }
+export interface HelmHistoryEntry { revision: number; updated: string; status: string; chart: string; appVersion: string; description: string }
+
+// ── Resource map (Slice 4) ─────────────────────────────────────────────
+export type GraphNodeKind = string;
+export interface GraphNode { id: string; kind: string; name: string; namespace?: string; status?: 'ok' | 'warn' | 'err' | 'off'; resourceId?: string }
+export interface GraphEdge { source: string; target: string; kind: 'owns' | 'routes' | 'selects' | 'mounts' | 'uses' }
+export interface ResourceGraph { nodes: GraphNode[]; edges: GraphEdge[] }
+
 /** Handle to an interactive exec session (renderer side). */
 export interface ExecHandle {
   write(data: string): void;
@@ -269,6 +279,17 @@ export interface KnApi {
     dns(host: string, type: DnsRecordType): Promise<Result<DnsResult>>;
     cert(hostPort: string): Promise<Result<CertResult>>;
     certPem(pem: string): Promise<Result<CertResult>>;
+  };
+  helm: {
+    available(): Promise<Result<boolean>>;
+    list(sessionId: string, namespace?: string): Promise<Result<HelmRelease[]>>;
+    history(sessionId: string, name: string, namespace: string): Promise<Result<HelmHistoryEntry[]>>;
+    values(sessionId: string, name: string, namespace: string): Promise<Result<string>>;
+    manifest(sessionId: string, name: string, namespace: string): Promise<Result<string>>;
+    rollback(sessionId: string, name: string, namespace: string, revision: number): Promise<Result<string>>;
+    upgrade(sessionId: string, name: string, namespace: string, chart: string, version?: string): Promise<Result<string>>;
+    install(sessionId: string, name: string, namespace: string, chart: string, version?: string): Promise<Result<string>>;
+    uninstall(sessionId: string, name: string, namespace: string): Promise<Result<string>>;
   };
   app: {
     version(): Promise<string>;

@@ -248,3 +248,18 @@ textarea.input { resize: vertical; line-height: 1.55; }
 @media (max-width: 900px) { .jwt-cols { grid-template-columns: 1fr; } }
 .chain-node { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 12px; }
 .chain-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--jade); flex-shrink: 0; }
+
+/* Slice 4: resource map + helm */
+.mapview { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.map-legend { display: flex; align-items: center; gap: 14px; padding: 4px 14px 8px; color: var(--muted); }
+.lg-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+.map-canvas { flex: 1; min-height: 0; overflow: hidden; margin: 0 8px 8px; border: 1px solid var(--border); border-radius: 10px; background: radial-gradient(900px 500px at 50% 40%, rgba(45,212,167,.04), transparent 70%), var(--bg-2); }
+.map-canvas svg text { pointer-events: none; }
+
+.helmview { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.helm-main { flex: 1; display: flex; min-height: 0; }
+.helm-list { width: 300px; flex-shrink: 0; border-right: 1px solid var(--border); overflow: auto; padding: 10px; background: var(--bg-2); }
+.helm-card { display: block; width: 100%; text-align: left; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px; margin-bottom: 8px; transition: .13s; }
+.helm-card:hover { border-color: var(--border-2); }
+.helm-card.on { border-color: var(--jade); background: var(--jade-dim); }
+.helm-detail { flex: 1; min-width: 0; display: flex; flex-direction: column; }

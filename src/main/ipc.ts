@@ -2,6 +2,7 @@ import { ipcMain, app, BrowserWindow } from 'electron';
 import type { AwsCreds, ClusterSession, Result, WatchParams, LogParams, ExecParams } from '@shared/types';
 import { cases } from './store/cases';
 import { dnsLookup, certCheck, certFromPem } from './tools';
+import { helmAvailable, helmList, helmHistory, helmValues, helmManifest, helmRollback, helmUpgrade, helmInstall, helmUninstall } from './helm';
 import { listEksClusters, describeEksCluster } from './aws/eks';
 import {
   clusterStatus, listResource, getResource, applyYaml, deleteResource,
@@ -214,6 +215,29 @@ export function registerIpc(): void {
   ipcMain.handle('tools:dns', wrap(async (host: string, type) => dnsLookup(host, type)));
   ipcMain.handle('tools:cert', wrap(async (hostPort: string) => certCheck(hostPort)));
   ipcMain.handle('tools:certPem', wrap(async (pem: string) => certFromPem(pem)));
+
+  // ── Helm ─────────────────────────────────────────────────────────
+  ipcMain.handle('helm:available', wrap(async () => helmAvailable()));
+  ipcMain.handle('helm:list', wrap(async (id: string, ns?: string) => helmList(id, ns)));
+  ipcMain.handle('helm:history', wrap(async (id: string, name: string, ns: string) => helmHistory(id, name, ns)));
+  ipcMain.handle('helm:values', wrap(async (id: string, name: string, ns: string) => helmValues(id, name, ns)));
+  ipcMain.handle('helm:manifest', wrap(async (id: string, name: string, ns: string) => helmManifest(id, name, ns)));
+  ipcMain.handle('helm:rollback', wrap(async (id: string, name: string, ns: string, rev: number) => {
+    const s = await need(id);
+    return record(s.name, { verb: 'helm-rollback', kind: 'HelmRelease', name, namespace: ns, detail: `rev=${rev}` }, () => helmRollback(id, name, ns, rev));
+  }));
+  ipcMain.handle('helm:upgrade', wrap(async (id: string, name: string, ns: string, chart: string, version?: string) => {
+    const s = await need(id);
+    return record(s.name, { verb: 'helm-upgrade', kind: 'HelmRelease', name, namespace: ns, detail: chart + (version ? `@${version}` : '') }, () => helmUpgrade(id, name, ns, chart, version));
+  }));
+  ipcMain.handle('helm:install', wrap(async (id: string, name: string, ns: string, chart: string, version?: string) => {
+    const s = await need(id);
+    return record(s.name, { verb: 'helm-install', kind: 'HelmRelease', name, namespace: ns, detail: chart + (version ? `@${version}` : '') }, () => helmInstall(id, name, ns, chart, version));
+  }));
+  ipcMain.handle('helm:uninstall', wrap(async (id: string, name: string, ns: string) => {
+    const s = await need(id);
+    return record(s.name, { verb: 'helm-uninstall', kind: 'HelmRelease', name, namespace: ns }, () => helmUninstall(id, name, ns));
+  }));
 
   ipcMain.handle('app:version', async () => app.getVersion());
   ipcMain.handle('app:capture', wrap(async () => {

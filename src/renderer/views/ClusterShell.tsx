@@ -7,6 +7,8 @@ import { useWatch } from '../kube/useWatch';
 import { ResourceTable } from '../components/ResourceTable';
 import { DetailsDrawer } from '../components/DetailsDrawer';
 import { Dock } from '../components/Dock';
+import { ResourceMap } from '../components/map/ResourceMap';
+import { HelmView } from '../components/helm/HelmView';
 
 const CATEGORY_ORDER: ResourceCategory[] = ['Workloads', 'Config', 'Network', 'Storage', 'Access', 'Cluster'];
 
@@ -22,6 +24,7 @@ export function ClusterShell() {
   const descriptor = descriptors.find((d) => d.id === activeResource);
   const [search, setSearch] = useState('');
   const [showLog, setShowLog] = useState(false);
+  const [view, setView] = useState<'resources' | 'map' | 'helm'>('resources');
 
   const status = useQuery<ClusterStatus>({
     queryKey: ['status', session.id],
@@ -58,11 +61,16 @@ export function ClusterShell() {
       <div className="shell-main">
         {/* sidebar */}
         <div className="sidebar">
+          <div className="side-group">
+            <div className="side-cat">Cluster</div>
+            <button className={'side-item' + (view === 'map' ? ' on' : '')} onClick={() => setView('map')}>◈ Resource map</button>
+            <button className={'side-item' + (view === 'helm' ? ' on' : '')} onClick={() => setView('helm')}>⎈ Helm releases</button>
+          </div>
           {grouped.map((g) => (
             <div key={g.cat} className="side-group">
               <div className="side-cat">{g.cat}</div>
               {g.items.map((d) => (
-                <button key={d.id} className={'side-item' + (d.id === activeResource ? ' on' : '')} onClick={() => setActiveResource(d.id)}>{d.kind}s</button>
+                <button key={d.id} className={'side-item' + (view === 'resources' && d.id === activeResource ? ' on' : '')} onClick={() => { setView('resources'); setActiveResource(d.id); }}>{d.kind}s</button>
               ))}
             </div>
           ))}
@@ -70,26 +78,30 @@ export function ClusterShell() {
 
         {/* content */}
         <div className="content">
-          <div className="content-bar">
-            <h2 style={{ fontSize: 15 }}>{descriptor?.kind ?? activeResource}s</h2>
-            {descriptor?.namespaced && (
-              <select className="input sm" style={{ width: 'auto' }} value={namespace} onChange={(e) => setNamespace(e.target.value)}>
-                <option value="">All namespaces</option>
-                {(status.data?.namespaces ?? []).map((n) => <option key={n} value={n}>{n}</option>)}
-              </select>
-            )}
-            <input className="input sm" placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: 240 }} />
-            <span className="muted mono" style={{ marginLeft: 'auto', fontSize: 12 }}>
-              {live ? `${filtered.length} shown` : 'connecting…'}{items.length !== filtered.length ? ` · ${items.length} total` : ''}
-            </span>
-          </div>
+          {view === 'map' && <ResourceMap />}
+          {view === 'helm' && <HelmView />}
+          {view === 'resources' && <>
+            <div className="content-bar">
+              <h2 style={{ fontSize: 15 }}>{descriptor?.kind ?? activeResource}s</h2>
+              {descriptor?.namespaced && (
+                <select className="input sm" style={{ width: 'auto' }} value={namespace} onChange={(e) => setNamespace(e.target.value)}>
+                  <option value="">All namespaces</option>
+                  {(status.data?.namespaces ?? []).map((n) => <option key={n} value={n}>{n}</option>)}
+                </select>
+              )}
+              <input className="input sm" placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: 240 }} />
+              <span className="muted mono" style={{ marginLeft: 'auto', fontSize: 12 }}>
+                {live ? `${filtered.length} shown` : 'connecting…'}{items.length !== filtered.length ? ` · ${items.length} total` : ''}
+              </span>
+            </div>
 
-          {error && <div className="alert" style={{ margin: '0 12px 10px' }}>{error}</div>}
-          {descriptor
-            ? <div className="table-scroll"><ResourceTable descriptor={descriptor} items={filtered} /></div>
-            : <div className="muted" style={{ padding: 20 }}>Loading resource kinds…</div>}
+            {error && <div className="alert" style={{ margin: '0 12px 10px' }}>{error}</div>}
+            {descriptor
+              ? <div className="table-scroll"><ResourceTable descriptor={descriptor} items={filtered} /></div>
+              : <div className="muted" style={{ padding: 20 }}>Loading resource kinds…</div>}
 
-          <Dock />
+            <Dock />
+          </>}
         </div>
 
         <DetailsDrawer />

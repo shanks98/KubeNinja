@@ -98,6 +98,17 @@ const api: KnApi = {
     cert: (hostPort) => ipcRenderer.invoke('tools:cert', hostPort),
     certPem: (pem) => ipcRenderer.invoke('tools:certPem', pem),
   },
+  helm: {
+    available: () => ipcRenderer.invoke('helm:available'),
+    list: (sessionId, namespace) => ipcRenderer.invoke('helm:list', sessionId, namespace),
+    history: (sessionId, name, namespace) => ipcRenderer.invoke('helm:history', sessionId, name, namespace),
+    values: (sessionId, name, namespace) => ipcRenderer.invoke('helm:values', sessionId, name, namespace),
+    manifest: (sessionId, name, namespace) => ipcRenderer.invoke('helm:manifest', sessionId, name, namespace),
+    rollback: (sessionId, name, namespace, revision) => ipcRenderer.invoke('helm:rollback', sessionId, name, namespace, revision),
+    upgrade: (sessionId, name, namespace, chart, version) => ipcRenderer.invoke('helm:upgrade', sessionId, name, namespace, chart, version),
+    install: (sessionId, name, namespace, chart, version) => ipcRenderer.invoke('helm:install', sessionId, name, namespace, chart, version),
+    uninstall: (sessionId, name, namespace) => ipcRenderer.invoke('helm:uninstall', sessionId, name, namespace),
+  },
   app: {
     version: () => ipcRenderer.invoke('app:version'),
     capture: () => ipcRenderer.invoke('app:capture'),

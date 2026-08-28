@@ -48,13 +48,22 @@ Each slice is independently runnable and verifiable. Build order:
       findings (expired/expiring, weak sig, short key, self-signed, hostname mismatch, long validity,
       wildcard) computed renderer-side. Tests (4).
 
-## Slice 3 — Observability
+## Slice 3 — Observability  ⏸ deferred to v2
 - Prometheus PromQL + Loki LogQL panels (configured endpoints); inline pod/node metric sparklines.
 
-## Slice 4 — Resource map + Helm
-- Cluster topology graph (owner refs + Service/Ingress/PVC edges).
-- Helm releases (list/history/rollback/upgrade/install-from-URL) via a bundled `helm` binary + a
-  transient temp kubeconfig.
+## Slice 4 — Resource map + Helm  ✅
+- [x] Resource map: per-namespace topology graph (ownerRef chains, Service→Pod selection,
+      Ingress→Service routes, Pod→PVC/ConfigMap/Secret mounts) built pure (tested), laid out with a
+      self-contained force sim (no graph lib) and rendered to SVG with status rings; click → details.
+- [x] Helm (full): bundled `helm` binary (`resources/bin`, fetched via scripts/fetch-helm.mjs) run
+      against a transient, locked STS-token kubeconfig (deleted after). List / history / values /
+      manifest (read) + rollback / upgrade / install / uninstall (write, each writes the action log).
+      HelmView with release list + history/values/manifest tabs and actions.
+- [x] Verify: 41 tests (graph builder + prior); typecheck + build green; both views driven via the
+      mock bridge. Live Helm run needs a real cluster + the bundled binary.
+
+## Deferred to v2
+- Observability (Prometheus PromQL + Loki LogQL panels + sparklines).
 
 ## Later (post-MVP)
 Node shell; extension system; code-signing + notarization + auto-update; non-EKS providers.
