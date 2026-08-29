@@ -5,6 +5,17 @@
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-2dd4a7.svg)](CONTRIBUTING.md)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-555.svg)
 
+### [▶ Try the interactive demo](https://shanks98.github.io/KubeNinja/)
+
+Click through KubeNinja **right in your browser** — no install, no cluster needed.
+Connect a cluster, browse pods, open a details drawer, stream logs, and switch
+clusters. It's fake data, but it mirrors the real app's look and feel.
+
+[![Launch the live demo](https://img.shields.io/badge/%E2%96%B6%20launch%20live%20demo-try%20it%20in%20your%20browser-2dd4a7?style=for-the-badge)](https://shanks98.github.io/KubeNinja/)
+
+> The demo is a self-contained HTML page hosted on GitHub Pages — the README can't
+> run JavaScript itself, so the button above opens the interactive version.
+
 A single-user, cross-platform **Kubernetes / EKS operations & investigation desktop IDE**
 (Electron). It combines Lens-grade cluster work with a built-in investigation suite — cases,
 findings, evidence, a local timeline — and connects to **EKS with short-lived AWS session

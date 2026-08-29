@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KubeNinja — Interactive Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#0b0e0d; --panel:#121714; --panel2:#171e1a; --line:#232c27;
+    --ink:#e7efe9; --muted:#94a69c; --faint:#66786e;
+    --jade:#2dd4a7; --jade-bg:#0f2a22; --jade-line:#1c4634;
+    --ok:#34d399; --warn:#e2b445; --err:#ef8080;
+    --sans:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:#06080a;color:var(--ink);font-family:var(--sans);font-size:14px;-webkit-font-smoothing:antialiased;
+    display:flex;align-items:center;justify-content:center;padding:18px}
+  .demo-banner{position:fixed;top:0;left:0;right:0;text-align:center;font-family:var(--mono);font-size:11px;
+    color:var(--faint);padding:6px;letter-spacing:.05em;z-index:100;pointer-events:none}
+  .demo-banner b{color:var(--jade)}
+
+  /* fake app window */
+  .win{width:min(1120px,100%);height:min(720px,88vh);background:var(--bg);border:1px solid var(--line);
+    border-radius:12px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 30px 90px rgba(0,0,0,.6);position:relative}
+
+  /* titlebar */
+  .titlebar{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#0a0d0c;border-bottom:1px solid var(--line);flex:none}
+  .dots{display:flex;gap:6px;margin-right:4px}
+  .dots i{width:11px;height:11px;border-radius:50%;display:block}
+  .dots i:nth-child(1){background:#ff5f57}.dots i:nth-child(2){background:#febc2e}.dots i:nth-child(3){background:#28c840}
+  .brand{font-weight:600;letter-spacing:.02em}.brand span{color:var(--jade)}
+  .tb-actions{margin-left:auto;display:flex;gap:6px}
+  .tb-actions button,.sw button{font:inherit}
+  .btn-sm{background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:7px;padding:5px 10px;cursor:pointer;font-size:12.5px}
+  .btn-sm:hover{border-color:var(--jade);color:var(--ink)}
+
+  /* cluster switcher */
+  .sw{position:relative}
+  .sw>button{display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:6px 10px;cursor:pointer}
+  .sw>button:hover{border-color:var(--jade)}
+  .pill{width:14px;height:14px;border-radius:50%;display:inline-grid;place-items:center;flex:none}
+  .pill i{width:7px;height:7px;border-radius:50%;background:var(--ok);display:block}
+  .pill.off i{background:var(--faint)}
+  .menu{position:absolute;top:38px;left:0;min-width:280px;background:var(--panel);border:1px solid var(--line);border-radius:11px;
+    padding:6px;box-shadow:0 18px 50px rgba(0,0,0,.6);z-index:40}
+  .menu .lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);padding:8px 9px 5px}
+  .menu .row{display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:8px;cursor:pointer}
+  .menu .row:hover{background:var(--panel2)}
+  .menu .row.on{background:var(--jade-bg)}
+  .menu .row .rg{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--faint)}
+  .menu .sep{height:1px;background:var(--line);margin:5px 4px}
+  .menu .add{color:var(--jade)}
+
+  /* body layout */
+  .body{flex:1;display:flex;min-height:0}
+  .sidebar{width:186px;border-right:1px solid var(--line);overflow-y:auto;padding:8px 6px;flex:none;background:#0a0d0c}
+  .sgroup{margin-bottom:12px}
+  .scat{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);padding:6px 10px 4px}
+  .sitem{display:block;width:100%;text-align:left;background:none;border:none;color:var(--muted);padding:6px 10px;border-radius:7px;cursor:pointer;font:inherit;font-size:13px}
+  .sitem:hover{background:var(--panel2);color:var(--ink)}
+  .sitem.on{background:var(--jade-bg);color:var(--jade);font-weight:600}
+
+  .content{flex:1;display:flex;flex-direction:column;min-width:0}
+  .cbar{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);flex:none}
+  .cbar h2{margin:0;font-size:15px;font-weight:600}
+  .cbar .count{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--faint)}
+  .inp{background:#0c1110;border:1px solid var(--line);color:var(--ink);border-radius:7px;padding:6px 10px;font:inherit;font-size:12.5px}
+  .inp:focus{outline:none;border-color:var(--jade)}
+
+  .tablewrap{flex:1;overflow:auto;min-height:0}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{position:sticky;top:0;background:var(--bg);text-align:left;color:var(--faint);font-family:var(--mono);font-size:10.5px;
+    letter-spacing:.06em;text-transform:uppercase;font-weight:600;padding:9px 16px;border-bottom:1px solid var(--line)}
+  td{padding:9px 16px;border-bottom:1px solid var(--line);white-space:nowrap}
+  tbody tr{cursor:pointer}
+  tbody tr:hover{background:var(--panel2)}
+  .mono{font-family:var(--mono)}
+  .st{display:inline-flex;align-items:center;gap:6px}
+  .st::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--ok)}
+  .st.warn::before{background:var(--warn)}.st.err::before{background:var(--err)}
+  .st.warn{color:var(--warn)}.st.err{color:var(--err)}
+  .rowbtn{background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:6px;padding:3px 8px;cursor:pointer;font:inherit;font-size:11.5px}
+  .rowbtn:hover{border-color:var(--jade);color:var(--jade)}
+
+  /* details drawer */
+  .drawer{position:absolute;top:0;right:0;bottom:0;width:340px;background:var(--panel);border-left:1px solid var(--line);
+    transform:translateX(100%);transition:transform .22s ease;z-index:30;display:flex;flex-direction:column;box-shadow:-20px 0 50px rgba(0,0,0,.4)}
+  .drawer.open{transform:none}
+  .dhead{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+  .dhead b{font-size:14px}
+  .dclose{margin-left:auto;background:none;border:none;color:var(--faint);cursor:pointer;font-size:16px}
+  .dbody{padding:14px 16px;overflow:auto;font-size:13px}
+  .kv{display:grid;grid-template-columns:96px 1fr;gap:6px 10px;margin-bottom:14px}
+  .kv .k{color:var(--faint);font-family:var(--mono);font-size:11.5px}
+  .kv .v{font-family:var(--mono);font-size:12px;word-break:break-all}
+  .dsec{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin:4px 0 8px}
+  .chip{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:3px 8px;margin:0 5px 5px 0;font-family:var(--mono);font-size:11.5px}
+
+  /* logs dock */
+  .dock{height:0;overflow:hidden;border-top:1px solid var(--line);background:#080b0a;transition:height .2s ease;flex:none;display:flex;flex-direction:column}
+  .dock.open{height:200px}
+  .dockhead{display:flex;align-items:center;gap:10px;padding:7px 14px;border-bottom:1px solid var(--line);flex:none}
+  .dockhead .tab{font-family:var(--mono);font-size:12px;color:var(--jade);display:flex;align-items:center;gap:7px}
+  .dockhead .tab::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--jade);animation:blink 1.4s infinite}
+  @keyframes blink{50%{opacity:.3}}
+  .logs{flex:1;overflow:auto;padding:8px 14px;font-family:var(--mono);font-size:12px;line-height:1.55;color:#b7c6bd}
+  .logs .t{color:var(--faint)}.logs .i{color:var(--jade)}.logs .w{color:var(--warn)}.logs .e{color:var(--err)}
+
+  /* connect / start screen */
+  .start{position:absolute;inset:0;background:var(--bg);z-index:60;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;text-align:center;overflow:auto}
+  .start.hide{display:none}
+  .start h1{font-size:26px;margin:0 0 4px}.start h1 span{color:var(--jade)}
+  .start p{color:var(--muted);margin:0 0 22px;max-width:52ch}
+  .clist{width:min(440px,100%);text-align:left}
+  .rg-h{display:flex;align-items:center;gap:8px;margin:14px 0 8px}
+  .rg-h .rg{font-family:var(--mono);font-size:11px;color:var(--jade);background:var(--jade-bg);border:1px solid var(--jade-line);border-radius:999px;padding:2px 9px}
+  .rg-h .c{color:var(--faint);font-size:11.5px}
+  .crow{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:11px 13px;margin-bottom:8px}
+  .crow .nm{font-weight:600}.crow .mm{color:var(--faint);font-family:var(--mono);font-size:11px;margin-top:1px}
+  .crow .act{margin-left:auto}
+  .conn{background:var(--jade);border:none;color:#04120d;font-weight:600;border-radius:8px;padding:7px 15px;cursor:pointer;font:inherit;font-size:13px}
+  .conn.done{background:var(--jade-bg);color:var(--ok);border:1px solid var(--jade-line);cursor:default}
+  .openbtn{background:var(--jade);border:none;color:#04120d;font-weight:700;border-radius:9px;padding:11px 22px;cursor:pointer;font:inherit;margin-top:20px;font-size:15px}
+  .openbtn:disabled{opacity:.4;cursor:not-allowed}
+  .lock{color:var(--faint);font-size:12px;margin-top:16px}.lock b{color:var(--ok)}
+</style>
+</head>
+<body>
+<div class="demo-banner">Interactive demo — <b>fake data</b>, runs entirely in your browser. This mirrors the real KubeNinja desktop app.</div>
+
+<div class="win">
+  <!-- START / CONNECT SCREEN -->
+  <div class="start" id="start">
+    <h1>Kube<span>Ninja</span> 🥷</h1>
+    <p>Pick a cluster to connect to. In the real app these are minted from an in-memory STS token — no kubeconfig, no credentials on disk.</p>
+    <div class="clist" id="clist"></div>
+    <button class="openbtn" id="openBtn" disabled>Open KubeNinja →</button>
+    <div class="lock">🔒 In the real app, credentials are <b>never</b> written to disk.</div>
+  </div>
+
+  <!-- TITLEBAR -->
+  <div class="titlebar">
+    <div class="dots"><i></i><i></i><i></i></div>
+    <div class="brand">🥷 Kube<span>Ninja</span></div>
+    <div class="sw" id="sw" style="margin-left:6px">
+      <button id="swBtn"><span class="pill"><i></i></span> <b id="swName">—</b>
+        <span class="mono" style="color:var(--faint);font-size:11px" id="swMeta"></span> <span style="color:var(--faint)">▾</span></button>
+      <div class="menu" id="swMenu" style="display:none"></div>
+    </div>
+    <div class="tb-actions">
+      <button class="btn-sm">Cases</button>
+      <button class="btn-sm">Tools</button>
+      <button class="btn-sm">Action log</button>
+    </div>
+  </div>
+
+  <!-- BODY -->
+  <div class="body">
+    <div class="sidebar" id="sidebar"></div>
+    <div class="content">
+      <div class="cbar">
+        <h2 id="kindTitle">Pods</h2>
+        <select class="inp" id="nsSel"><option>All namespaces</option><option>default</option><option>payments</option><option>kube-system</option></select>
+        <input class="inp" id="search" placeholder="Search…" style="width:180px">
+        <span class="count" id="count"></span>
+      </div>
+      <div class="tablewrap"><table><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+      <div class="dock" id="dock">
+        <div class="dockhead">
+          <span class="tab" id="dockTab">logs</span>
+          <button class="btn-sm" style="margin-left:auto" onclick="closeDock()">✕ close</button>
+        </div>
+        <div class="logs" id="logs"></div>
+      </div>
+    </div>
+
+    <!-- DETAILS DRAWER -->
+    <div class="drawer" id="drawer">
+      <div class="dhead"><span class="pill" id="dPill"><i></i></span><b id="dName">—</b><button class="dclose" onclick="closeDrawer()">✕</button></div>
+      <div class="dbody" id="dBody"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const CLUSTERS = [
+  {id:'a',name:'prod-eks',region:'us-east-1',ver:'1.35'},
+  {id:'b',name:'staging-eks',region:'us-east-1',ver:'1.34'},
+  {id:'c',name:'payments-eks',region:'eu-west-1',ver:'1.33'},
+];
+const connected = new Set();
+let active = null;
+
+// ----- sidebar -----
+const NAV = [
+  ['Cluster',['Resource map','Helm releases']],
+  ['Workloads',['Pods','Deployments','StatefulSets','DaemonSets','Jobs']],
+  ['Config',['ConfigMaps','Secrets']],
+  ['Network',['Services','Ingresses']],
+  ['Cluster ',['Nodes','Namespaces']],
+];
+let activeKind = 'Pods';
+
+// ----- fake data -----
+const NODES = ['ip-10-0-1-23','ip-10-0-2-88','ip-10-0-3-41'];
+const POD = (name,ns,ready,st,rs,node,age)=>({name,ns,ready,st,rs,node,age});
+const DATA = {
+  Pods:{cols:['Name','Namespace','Ready','Status','Restarts','Node','Age'],rows:[
+    POD('api-gateway-7d9f4c6b8-2xr4k','default','2/2','Running','0','ip-10-0-1-23','4d'),
+    POD('api-gateway-7d9f4c6b8-lm9qz','default','2/2','Running','0','ip-10-0-2-88','4d'),
+    POD('checkout-6b5c9d7f4-8vhtp','payments','1/1','Running','1','ip-10-0-2-88','2d'),
+    POD('checkout-6b5c9d7f4-qk2ml','payments','1/1','Running','0','ip-10-0-3-41','2d'),
+    POD('ledger-worker-5f7b8c-2ttq9','payments','0/1','CrashLoopBackOff','7','ip-10-0-3-41','36m'),
+    POD('redis-0','payments','1/1','Running','0','ip-10-0-1-23','11d'),
+    POD('coredns-5d78c9-abcde','kube-system','1/1','Running','0','ip-10-0-1-23','21d'),
+    POD('otel-collector-9c4d-pending','default','0/1','Pending','0','—','1m'),
+  ]},
+  Deployments:{cols:['Name','Namespace','Ready','Up-to-date','Available','Age'],rows:[
+    {c:['api-gateway','default','2/2','2','2','4d']},{c:['checkout','payments','2/2','2','2','2d']},
+    {c:['ledger-worker','payments','0/1','1','0','36m'],bad:1},{c:['web','default','3/3','3','3','9d']},
+  ]},
+  Services:{cols:['Name','Namespace','Type','Cluster-IP','Ports','Age'],rows:[
+    {c:['api-gateway','default','ClusterIP','172.20.14.9','80/TCP','4d']},
+    {c:['checkout','payments','ClusterIP','172.20.51.2','8080/TCP','2d']},
+    {c:['ingress-nginx','ingress','LoadBalancer','172.20.0.42','80,443','30d']},
+  ]},
+  Nodes:{cols:['Name','Status','Roles','Version','CPU','Age'],rows:[
+    {c:['ip-10-0-1-23','Ready','worker','v1.35.0','38%','24d']},
+    {c:['ip-10-0-2-88','Ready','worker','v1.35.0','52%','24d']},
+    {c:['ip-10-0-3-41','Ready','worker','v1.35.0','71%','12d']},
+  ]},
+};
+const GENERIC = k => ({cols:['Name','Namespace','Age'],rows:[
+  {c:[k.toLowerCase()+'-alpha','default','5d']},{c:[k.toLowerCase()+'-beta','payments','2d']},
+]});
+
+function statusClass(s){ if(/CrashLoop|Error|Failed/.test(s))return'err'; if(/Pending|NotReady|0\//.test(s))return'warn'; return''; }
+
+// ----- render start screen -----
+function renderStart(){
+  const el=document.getElementById('clist'); el.innerHTML='';
+  const regions=[...new Set(CLUSTERS.map(c=>c.region))];
+  regions.forEach(rg=>{
+    const h=document.createElement('div');h.className='rg-h';
+    const rows=CLUSTERS.filter(c=>c.region===rg);
+    h.innerHTML=`<span class="rg">${rg}</span><span class="c">${rows.length} cluster${rows.length>1?'s':''}</span>`;
+    el.appendChild(h);
+    rows.forEach(c=>{
+      const row=document.createElement('div');row.className='crow';
+      row.innerHTML=`<span class="pill off"><i></i></span>
+        <div><div class="nm">${c.name}</div><div class="mm">${c.region} · v${c.ver} · saved</div></div>
+        <div class="act"><button class="conn">Connect</button></div>`;
+      const btn=row.querySelector('.conn');
+      btn.onclick=()=>{
+        if(btn.classList.contains('done'))return;
+        btn.textContent='Minting token…';row.querySelector('.pill').classList.remove('off');
+        setTimeout(()=>{ btn.textContent='Connected';btn.classList.add('done');
+          row.querySelector('.mm').textContent=`${c.region} · v${c.ver} · connected`;
+          connected.add(c.id); if(!active)active=c.id;
+          document.getElementById('openBtn').disabled=false;
+        },550);
+      };
+      el.appendChild(row);
+    });
+  });
+}
+document.getElementById('openBtn').onclick=()=>{
+  document.getElementById('start').classList.add('hide'); renderShell();
+};
+
+// ----- render shell -----
+function renderShell(){
+  // sidebar
+  const sb=document.getElementById('sidebar'); sb.innerHTML='';
+  NAV.forEach(([cat,items])=>{
+    const g=document.createElement('div');g.className='sgroup';
+    g.innerHTML=`<div class="scat">${cat.trim()}</div>`;
+    items.forEach(it=>{
+      const b=document.createElement('button');b.className='sitem'+(it===activeKind?' on':'');b.textContent=it;
+      b.onclick=()=>{activeKind=it;renderShell();closeDrawer();};
+      g.appendChild(b);
+    });
+    sb.appendChild(g);
+  });
+  renderTable();
+  renderSwitcher();
+}
+
+function renderTable(){
+  const map={'Pods':'Pods','Deployments':'Deployments','Services':'Services','Nodes':'Nodes'};
+  const key=map[activeKind];
+  document.getElementById('kindTitle').textContent=activeKind;
+  const nonTable=['Resource map','Helm releases'];
+  const thead=document.getElementById('thead'),tbody=document.getElementById('tbody');
+  if(nonTable.includes(activeKind)){
+    thead.innerHTML='';tbody.innerHTML=`<tr><td style="padding:40px;color:var(--faint);text-align:center" colspan="6">▲ The <b>${activeKind}</b> view renders here in the real app — a force-directed topology map / full Helm release manager.</td></tr>`;
+    document.getElementById('count').textContent='';return;
+  }
+  const ds=key?DATA[key]:GENERIC(activeKind);
+  const q=(document.getElementById('search').value||'').toLowerCase();
+  const ns=document.getElementById('nsSel').value;
+  thead.innerHTML='<tr>'+ds.cols.map(c=>`<th>${c}</th>`).join('')+'<th></th></tr>';
+  let rows=ds.rows;
+  const get=r=>r.c?r.c:[r.name,r.ns,r.ready,r.st,r.rs,r.node,r.age];
+  rows=rows.filter(r=>{const v=get(r);
+    if(ns!=='All namespaces'&&v[1]&&v[1]!==ns)return false;
+    return !q||v.join(' ').toLowerCase().includes(q);});
+  tbody.innerHTML='';
+  rows.forEach(r=>{
+    const v=get(r);const tr=document.createElement('tr');
+    const stIdx=ds.cols.indexOf('Status');
+    tr.innerHTML=v.map((cell,i)=>{
+      if(i===0)return`<td class="mono" style="color:var(--ink)">${cell}</td>`;
+      if(i===stIdx){const cl=statusClass(cell);return`<td><span class="st ${cl}">${cell}</span></td>`;}
+      return`<td class="mono" style="color:var(--muted)">${cell}</td>`;
+    }).join('')+`<td><button class="rowbtn" onclick="event.stopPropagation();openLogs('${v[0]}')">Logs</button></td>`;
+    tr.onclick=()=>openDrawer(r,v,ds.cols);
+    tbody.appendChild(tr);
+  });
+  document.getElementById('count').textContent=rows.length+' shown';
+}
+document.getElementById('search').oninput=renderTable;
+document.getElementById('nsSel').onchange=renderTable;
+
+// ----- details drawer -----
+function openDrawer(r,v,cols){
+  const st=v[cols.indexOf('Status')]||'Running';
+  document.getElementById('dName').textContent=v[0];
+  const pill=document.getElementById('dPill');pill.className='pill '+(statusClass(st)==='err'?'off':'');
+  const kv=[['kind',activeKind.replace(/s$/,'')],['namespace',v[1]||'—'],['status',st],['node',r.node||'—'],['pod IP',r.node?'10.'+(Math.abs(hash(v[0]))%200+20)+'.'+ (Math.abs(hash(v[0])>>3)%200)+'.'+(Math.abs(hash(v[0])>>6)%200):'—'],['age',v[cols.length-1]]];
+  document.getElementById('dBody').innerHTML=
+    `<div class="kv">${kv.map(([k,val])=>`<div class="k">${k}</div><div class="v">${val}</div>`).join('')}</div>`+
+    `<div class="dsec">Labels</div><div>${['app='+v[0].split('-')[0],'tier=backend','managed-by=helm'].map(l=>`<span class="chip">${l}</span>`).join('')}</div>`+
+    (activeKind==='Pods'?`<div class="dsec" style="margin-top:14px">Containers</div><div>${['app','istio-proxy'].map(c=>`<span class="chip">${c}</span>`).join('')}</div>`:'');
+  document.getElementById('drawer').classList.add('open');
+}
+function closeDrawer(){document.getElementById('drawer').classList.remove('open');}
+function hash(s){let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;return h;}
+
+// ----- logs dock -----
+let logTimer=null;
+const LOGLINES=[
+ ['i','Starting application v2.14.3 (commit 8f3ac21)'],
+ ['t','Loaded configuration from /etc/app/config.yaml'],
+ ['i','Connected to postgres primary at db.internal:5432'],
+ ['i','HTTP server listening on :8080'],
+ ['t','GET /healthz 200 1ms'],
+ ['t','GET /api/v1/orders 200 14ms'],
+ ['w','slow query: SELECT * FROM ledger WHERE ... (812ms)'],
+ ['t','POST /api/v1/checkout 201 63ms'],
+ ['i','processed 128 messages from queue "settlements"'],
+ ['e','failed to acquire lock for tenant=acme: context deadline exceeded'],
+ ['t','GET /metrics 200 3ms'],
+ ['i','cache warm complete (4211 keys)'],
+];
+function openLogs(name){
+  document.getElementById('dockTab').textContent=`logs · ${name}`;
+  document.getElementById('dock').classList.add('open');
+  const box=document.getElementById('logs');box.innerHTML='';
+  let i=0;clearInterval(logTimer);
+  const push=()=>{const [cls,msg]=LOGLINES[i%LOGLINES.length];
+    const ts=new Date(Date.now()- (LOGLINES.length-i)*1200).toISOString().substr(11,8);
+    const div=document.createElement('div');
+    div.innerHTML=`<span class="t">${ts}</span> <span class="${cls}">${cls==='e'?'ERROR':cls==='w'?'WARN ':'INFO '}</span> ${msg}`;
+    box.appendChild(div);box.scrollTop=box.scrollHeight;i++;};
+  for(let k=0;k<6;k++)push();
+  logTimer=setInterval(push,1400);
+}
+function closeDock(){document.getElementById('dock').classList.remove('open');clearInterval(logTimer);}
+
+// ----- cluster switcher -----
+function renderSwitcher(){
+  const a=CLUSTERS.find(c=>c.id===active);
+  document.getElementById('swName').textContent=a.name;
+  document.getElementById('swMeta').textContent=`${a.region} · v${a.ver}`+(connected.size>1?`  +${connected.size-1}`:'');
+  const menu=document.getElementById('swMenu');
+  const conn=CLUSTERS.filter(c=>connected.has(c.id));
+  const saved=CLUSTERS.filter(c=>!connected.has(c.id));
+  menu.innerHTML=`<div class="lbl">Connected clusters</div>`+
+    conn.map(c=>`<div class="row ${c.id===active?'on':''}" data-id="${c.id}"><span class="pill ${c.id===active?'':'off'}"><i></i></span><span>${c.name}</span><span class="rg">${c.region}</span></div>`).join('')+
+    (saved.length?`<div class="sep"></div><div class="lbl">Reconnect saved</div>`+
+      saved.map(c=>`<div class="row" data-reconnect="${c.id}"><span class="pill off"><i></i></span><span>${c.name}</span><span class="rg">${c.region}</span></div>`).join(''):'')+
+    `<div class="sep"></div><div class="row add">＋ Add cluster</div>`;
+  menu.querySelectorAll('[data-id]').forEach(el=>el.onclick=()=>{active=el.dataset.id;toggleMenu(false);renderShell();closeDrawer();closeDock();});
+  menu.querySelectorAll('[data-reconnect]').forEach(el=>el.onclick=()=>{const id=el.dataset.reconnect;
+    el.innerHTML=`<span class="pill"><i></i></span><span>${CLUSTERS.find(c=>c.id===id).name}</span><span class="rg">connecting…</span>`;
+    setTimeout(()=>{connected.add(id);active=id;toggleMenu(false);renderShell();},600);});
+}
+function toggleMenu(force){const m=document.getElementById('swMenu');const show=force!==undefined?force:m.style.display==='none';m.style.display=show?'block':'none';}
+document.getElementById('swBtn').onclick=(e)=>{e.stopPropagation();toggleMenu();};
+document.addEventListener('click',e=>{if(!e.target.closest('#sw'))toggleMenu(false);});
+
+renderStart();
+</script>
+</body>
+</html>
