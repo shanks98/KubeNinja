@@ -1,5 +1,10 @@
 # KubeNinja 🥷
 
+[![CI](https://github.com/shanks98/KubeNinja/actions/workflows/ci.yml/badge.svg)](https://github.com/shanks98/KubeNinja/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2dd4a7.svg)](LICENSE)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-2dd4a7.svg)](CONTRIBUTING.md)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-555.svg)
+
 A single-user, cross-platform **Kubernetes / EKS operations & investigation desktop IDE**
 (Electron). It combines Lens-grade cluster work with a built-in investigation suite — cases,
 findings, evidence, a local timeline — and connects to **EKS with short-lived AWS session
@@ -143,6 +148,23 @@ are scrubbed on disconnect / exit; tokens are re-minted transparently before exp
 `src/preload` publishes `window.kn`; `src/renderer` (React) is pure UI with `contextIsolation`
 on. See the spec for the full picture and the vertical-slice plan.
 
+## Contributing
+
+KubeNinja is open source and **community contributions are very welcome** — it's
+young and there's plenty of high-impact work to do (multi-cloud beyond EKS,
+observability panels, signed builds, more tests). Start with
+**[CONTRIBUTING.md](CONTRIBUTING.md)** for setup, the architecture in 60 seconds,
+and the one rule that matters most: **credentials and tokens never touch disk and
+never leave the main process.**
+
+- 🐛 Found a bug or have an idea? [Open an issue](https://github.com/shanks98/KubeNinja/issues/new/choose).
+- 💬 Questions or proposals? Use [Discussions](https://github.com/shanks98/KubeNinja/discussions).
+- 🔒 Security issue? Please report it [privately](SECURITY.md), not as a public issue.
+- 🤝 Be excellent to each other — see the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+Good first areas are listed in [CONTRIBUTING.md](CONTRIBUTING.md#roadmap--good-places-to-start)
+and issues labelled `good first issue`.
+
 ## Credits
 
 An independent implementation. Design and architecture patterns are informed by
@@ -151,4 +173,4 @@ author's own **DockerLens**. KubeNinja shares no code with them.
 
 ## License
 
-MIT
+[MIT](LICENSE) © 2026 shanks98 and the KubeNinja contributors.

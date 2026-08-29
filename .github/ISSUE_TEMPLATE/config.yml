@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 🔒 Report a security vulnerability
+    url: https://github.com/shanks98/KubeNinja/security/advisories/new
+    about: Please report security issues privately, not as a public issue.
+  - name: 💬 Questions & ideas
+    url: https://github.com/shanks98/KubeNinja/discussions
+    about: Ask questions or float ideas in Discussions before filing an issue.

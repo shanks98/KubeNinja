@@ -1,0 +1,61 @@
+name: 🐛 Bug report
+description: Something isn't working the way it should
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug! Please **don't** paste real AWS credentials,
+        session tokens, or full cluster endpoints anywhere in this report.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+      placeholder: I connected to an EKS cluster and…
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Add clusters with…
+        2. Connect to…
+        3. See error…
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: KubeNinja version
+      description: See the footer of the Welcome screen, or package.json.
+      placeholder: v0.2.0
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How are you running it?
+      options:
+        - Packaged app (KubeNinja.exe)
+        - From source (npm run dev)
+        - From source (npm run pack:portable)
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / errors
+      description: Any error text shown in the app. Scrub cluster names/endpoints if sensitive.
+      render: shell
