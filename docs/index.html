@@ -578,58 +578,30 @@ function renderTools(){
   body.querySelectorAll('.tool-tab').forEach(el=>el.onclick=()=>{toolSel=el.dataset.t;renderTools();});
   renderTool(document.getElementById('tw'));
 }
+const TOOLDEMO={
+ 'Base64':{in:'kube-ninja:s3cr3t!',out:'a3ViZS1uaW5qYTpzM2NyM3Qh',lbl:'Encoded'},
+ 'JWT':{in:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJvcHMtYm90Iiwicm9sZSI6ImNsdXN0ZXItYWRtaW4iLCJleHAiOjE3MjQ5MzAwMDB9.hqWGSaFpvbrXkOWc6lrnffhNWR19W_a1Ol9nOWL9Wko',
+   out:'HEADER\n{\n  "alg": "HS256",\n  "typ": "JWT"\n}\n\nPAYLOAD\n{\n  "sub": "ops-bot",\n  "role": "cluster-admin",\n  "exp": 1724930000\n}\n\nexp -> 2024-08-29T11:13:20.000Z  ⚠ EXPIRED',lbl:'Decoded'},
+ 'Hash (SHA-256)':{in:'ledger-worker-5f7b8c',out:'e5688e98d2d323535626dfead49acdaa09da24ec36a41eb1af17ec97b66f6fa5',lbl:'SHA-256'},
+ 'Timestamp':{in:'1724930000',out:'ISO (UTC): 2024-08-29T11:13:20.000Z\nLocal:     Thu Aug 29 2024 16:43:20\nUnix (s):  1724930000',lbl:'Converted'},
+ 'JSON':{in:'{"pod":"ledger-worker","restarts":7,"status":"CrashLoopBackOff"}',out:'{\n  "pod": "ledger-worker",\n  "restarts": 7,\n  "status": "CrashLoopBackOff"\n}',lbl:'Formatted'},
+ 'CIDR':{in:'10.0.0.0/24',out:'network:    10.0.0.0/24\nnetmask:    255.255.255.0\nfirst host: 10.0.0.1\nlast host:  10.0.0.254\nbroadcast:  10.0.0.255\naddresses:  256',lbl:'Computed'},
+ 'URL encode':{in:'https://api.internal/orders?q=a b&tag=/prod#top',out:'https%3A%2F%2Fapi.internal%2Forders%3Fq%3Da%20b%26tag%3D%2Fprod%23top',lbl:'Encoded'},
+ 'HAR':{note:'Drop a <b>.har</b> file in the desktop app to get a request waterfall, an auth-flow map, and automatic security findings.',out:'42 requests · 3 hosts · 1.2 MB\n\n> POST /oauth/token           200  412ms\n> GET  /api/v1/orders         200   14ms\n> POST /api/v1/checkout       201  812ms  ⚠ slow\n\nfindings:\n • Bearer token sent to 2 hosts\n • 1 request over plain http\n • Set-Cookie missing "Secure"'},
+ 'DNS':{note:'Runs a live DNS lookup — needs the desktop app (network access).',out:'api.internal   A     10.0.14.9\n               A     10.0.51.2\napi.internal   CNAME lb-42.eu-west-1.elb.amazonaws.com\n               TTL   60s'},
+ 'Certificate':{note:'Fetches and parses the TLS certificate for a host:port — needs the desktop app.',out:'subject:  CN=api.internal\nissuer:   CN=Amazon RSA 2048 M02\nvalid:    2026-01-14 -> 2026-09-10  (12 days left)\nSANs:     api.internal, *.api.internal\nkey:      RSA 2048 · SHA256withRSA\nchain:    3 certs · trusted'},
+};
+function escapeHtml(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
 function renderTool(w){
-  const T=toolSel;
-  const ta=(id,ph,h=76)=>`<textarea class="inp" id="${id}" style="width:100%;min-height:${h}px;font-family:var(--mono)" placeholder="${ph}"></textarea>`;
-  const inp=(id,ph)=>`<input class="inp" id="${id}" style="width:100%;font-family:var(--mono)" placeholder="${ph}">`;
-  const note=(m,ex)=>`<div style="color:var(--muted);font-size:13px;margin-bottom:6px">${m}</div><div class="dsec">Example output</div><pre class="tout">${ex}</pre>`;
-  const val=id=>w.querySelector('#'+id).value, setO=v=>w.querySelector('#o').textContent=v;
-  if(T==='Base64'){
-    w.innerHTML=ta('i','text or base64…')+`<div class="trow"><button class="conn" id="a">Encode →</button><button class="btn-sm" id="b">Decode</button></div>`+`<pre class="tout" id="o"></pre>`;
-    w.querySelector('#a').onclick=()=>{try{setO(btoa(unescape(encodeURIComponent(val('i')))))}catch(e){setO('⚠ '+e.message)}};
-    w.querySelector('#b').onclick=()=>{try{setO(decodeURIComponent(escape(atob(val('i').trim()))))}catch(e){setO('⚠ invalid base64')}};
-  } else if(T==='JWT'){
-    w.innerHTML=ta('i','paste a JWT (header.payload.signature)…',60)+`<div class="trow"><button class="conn" id="a">Decode</button></div>`+`<pre class="tout" id="o"></pre>`;
-    w.querySelector('#a').onclick=()=>{try{const p=val('i').trim().split('.');const d=s=>JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g,'+').replace(/_/g,'/')))));
-      const h=d(p[0]),pl=d(p[1]);let x='';if(pl.exp)x='\n\nexp → '+new Date(pl.exp*1000).toISOString()+(pl.exp*1000<Date.now()?'  ⚠ EXPIRED':'');
-      setO('HEADER\n'+JSON.stringify(h,null,2)+'\n\nPAYLOAD\n'+JSON.stringify(pl,null,2)+x);}catch(e){setO('⚠ not a valid JWT')}};
-  } else if(T==='Hash (SHA-256)'){
-    w.innerHTML=ta('i','text to hash…',60)+`<div class="trow"><button class="conn" id="a">SHA-256</button></div>`+`<pre class="tout" id="o"></pre>`;
-    w.querySelector('#a').onclick=async()=>{const b=new TextEncoder().encode(val('i'));const h=await crypto.subtle.digest('SHA-256',b);
-      setO([...new Uint8Array(h)].map(x=>x.toString(16).padStart(2,'0')).join(''));};
-  } else if(T==='Timestamp'){
-    w.innerHTML=inp('i','epoch seconds or ms, e.g. 1724930000')+`<div class="trow"><button class="conn" id="a">Convert</button><button class="btn-sm" id="b">Now</button></div>`+`<pre class="tout" id="o"></pre>`;
-    const conv=()=>{let n=parseInt(val('i'),10);if(isNaN(n))return setO('⚠ enter a number');if(String(Math.abs(n)).length<=10)n*=1000;const d=new Date(n);
-      setO('ISO (UTC): '+d.toISOString()+'\nLocal:     '+d.toLocaleString()+'\nUnix (s):  '+Math.floor(n/1000));};
-    w.querySelector('#a').onclick=conv;w.querySelector('#b').onclick=()=>{w.querySelector('#i').value=Date.now();conv();};
-  } else if(T==='JSON'){
-    w.innerHTML=ta('i','{"paste":"json here"}')+`<div class="trow"><button class="conn" id="a">Format / validate</button></div>`+`<pre class="tout" id="o"></pre>`;
-    w.querySelector('#a').onclick=()=>{try{setO(JSON.stringify(JSON.parse(val('i')),null,2))}catch(e){setO('⚠ '+e.message)}};
-  } else if(T==='CIDR'){
-    w.innerHTML=inp('i','10.0.0.0/24')+`<div class="trow"><button class="conn" id="a">Compute</button></div>`+`<pre class="tout" id="o"></pre>`;
-    w.querySelector('#a').onclick=()=>setO(cidrInfo(val('i')));
-  } else if(T==='URL encode'){
-    w.innerHTML=ta('i','text or encoded url…',60)+`<div class="trow"><button class="conn" id="a">Encode →</button><button class="btn-sm" id="b">Decode</button></div>`+`<pre class="tout" id="o"></pre>`;
-    w.querySelector('#a').onclick=()=>setO(encodeURIComponent(val('i')));
-    w.querySelector('#b').onclick=()=>{try{setO(decodeURIComponent(val('i')))}catch(e){setO('⚠ invalid encoding')}};
-  } else if(T==='HAR'){
-    w.innerHTML=note('Drop a <b>.har</b> file in the desktop app to get a request waterfall, an auth-flow map, and automatic security findings.',
-      '42 requests · 3 hosts · 1.2 MB\n\n▸ POST /oauth/token           200  412ms\n▸ GET  /api/v1/orders         200   14ms\n▸ POST /api/v1/checkout       201  812ms  ⚠ slow\n\nfindings:\n • Bearer token sent to 2 hosts\n • 1 request over plain http\n • Set-Cookie missing "Secure"');
-  } else if(T==='DNS'){
-    w.innerHTML=note('Runs a live DNS lookup — needs the desktop app (network access).',
-      'api.internal   A     10.0.14.9\n               A     10.0.51.2\napi.internal   CNAME lb-42.eu-west-1.elb.amazonaws.com\n               TTL   60s');
-  } else if(T==='Certificate'){
-    w.innerHTML=note('Fetches and parses the TLS certificate for a host:port — needs the desktop app.',
-      'subject:  CN=api.internal\nissuer:   CN=Amazon RSA 2048 M02\nvalid:    2026-01-14 → 2026-09-10  (12 days left)\nSANs:     api.internal, *.api.internal\nkey:      RSA 2048 · SHA256withRSA\nchain:    3 certs · trusted');
+  const d=TOOLDEMO[toolSel]||{};
+  if(d.note){
+    w.innerHTML=`<div style="color:var(--muted);font-size:13px;margin-bottom:8px">${d.note}</div>`+
+      `<div class="dsec">Example output</div><pre class="tout">${escapeHtml(d.out)}</pre>`;
+    return;
   }
-}
-function cidrInfo(s){
-  const m=(s||'').trim().match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)\/(\d+)$/);if(!m)return'⚠ format: 10.0.0.0/24';
-  const oc=[+m[1],+m[2],+m[3],+m[4]];if(oc.some(x=>x>255))return'⚠ octet out of range';const bits=+m[5];if(bits>32)return'⚠ prefix must be 0–32';
-  const ip=((oc[0]<<24)|(oc[1]<<16)|(oc[2]<<8)|oc[3])>>>0;const mask=bits===0?0:(~0<<(32-bits))>>>0;
-  const net=(ip&mask)>>>0,bc=(net|(~mask>>>0))>>>0,fmt=x=>[x>>>24&255,x>>16&255,x>>8&255,x&255].join('.');
-  const n=2**(32-bits);
-  return `network:    ${fmt(net)}/${bits}\nnetmask:    ${fmt(mask)}\nfirst host: ${fmt(bits>=31?net:net+1)}\nlast host:  ${fmt(bits>=31?bc:bc-1)}\nbroadcast:  ${fmt(bc)}\naddresses:  ${n.toLocaleString()}`;
+  w.innerHTML=`<div class="dsec">Input</div><pre class="tout" style="min-height:auto">${escapeHtml(d.in)}</pre>`+
+    `<div class="dsec" style="margin-top:12px">${d.lbl||'Output'}</div><pre class="tout">${escapeHtml(d.out)}</pre>`+
+    `<div style="color:var(--faint);font-size:11.5px;margin-top:10px">Example values — in the desktop app you type your own input and it computes live.</div>`;
 }
 
 renderStart();
