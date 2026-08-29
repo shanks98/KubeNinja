@@ -96,6 +96,16 @@
     box-shadow:0 14px 34px rgba(0,0,0,.55);transition:all .2s;z-index:90;font-family:var(--mono)}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   .toast.err{border-color:#3a1c1c}
+  .cfm-back{position:absolute;inset:0;background:rgba(0,0,0,.55);display:grid;place-items:center;z-index:95}
+  .cfm{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;width:min(360px,90%);box-shadow:0 24px 70px rgba(0,0,0,.6)}
+  .cfm-title{font-weight:600;font-size:15px;margin-bottom:6px}
+  .cfm-msg{color:var(--muted);font-size:13.5px;margin-bottom:18px;line-height:1.5}
+  .cfm-msg b{color:var(--ink)}
+  .cfm-actions{display:flex;justify-content:flex-end;gap:10px}
+  .cfm-cancel{background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:8px 15px;cursor:pointer;font:inherit}
+  .cfm-cancel:hover{color:var(--ink);border-color:var(--faint)}
+  .cfm-ok{background:var(--jade);border:none;color:#04120d;font-weight:600;border-radius:8px;padding:8px 16px;cursor:pointer;font:inherit}
+  .cfm-ok.danger{background:#b0494a;color:#fff}
 
   /* details drawer */
   .drawer{position:absolute;top:0;right:0;bottom:0;width:340px;background:var(--panel);border-left:1px solid var(--line);
@@ -406,10 +416,12 @@ function openDockView(name,mode){
 
 // ----- row actions menu (mirrors the real app's per-kind actions) -----
 function actionsFor(kind){
-  if(kind==='Pods')return[{t:'Logs',dock:'logs'},{t:'Live logs',dock:'live'},{t:'Trace (log4j)',dock:'trace'},{t:'Shell',dock:'shell'},{sep:1},{t:'Restart'},{t:'Delete',danger:1}];
-  if(['Deployments','StatefulSets','DaemonSets'].includes(kind))return[{t:'Logs',dock:'logs'},{sep:1},{t:'Restart'},{t:'Scale…'},{t:'Delete',danger:1}];
-  if(kind==='Nodes')return[{t:'Cordon'},{t:'Drain (evict)'},{sep:1},{t:'Delete',danger:1}];
-  return[{t:'Logs',dock:'logs'},{sep:1},{t:'Delete',danger:1}];
+  const restart={t:'Restart',confirm:1,msg:n=>`Rollout-restart <b>${n}</b>?`};
+  const del={t:'Delete',danger:1,confirm:1,msg:n=>`Delete <b>${n}</b>? This can't be undone.`};
+  if(kind==='Pods')return[{t:'Logs',dock:'logs'},{t:'Live logs',dock:'live'},{t:'Trace (log4j)',dock:'trace'},{t:'Shell',dock:'shell'},{sep:1},restart,del];
+  if(['Deployments','StatefulSets','DaemonSets'].includes(kind))return[{t:'Logs',dock:'logs'},{sep:1},restart,{t:'Scale…'},del];
+  if(kind==='Nodes')return[{t:'Cordon'},{t:'Drain (evict)',danger:1,confirm:1,msg:n=>`Cordon and evict all evictable pods on <b>${n}</b>?`},{sep:1},del];
+  return[{t:'Logs',dock:'logs'},{sep:1},del];
 }
 function closeRowMenu(){const m=document.getElementById('rowmenu');if(m)m.remove();}
 function openRowMenu(btn,name){
@@ -423,9 +435,10 @@ function openRowMenu(btn,name){
   m.style.left=Math.max(8,Math.min(r.right-186,window.innerWidth-196))+'px';
   const mis=m.querySelectorAll('.mi');
   items.filter(it=>!it.sep).forEach((it,idx)=>{
-    mis[idx].onclick=(e)=>{e.stopPropagation();closeRowMenu();
-      if(it.dock)openDockView(name,it.dock);
-      else toast(`${it.t.replace('…','')} · ${name} — recorded to the action log`, it.danger?'err':'ok');
+    mis[idx].onclick=async(e)=>{e.stopPropagation();closeRowMenu();
+      if(it.dock){openDockView(name,it.dock);return;}
+      if(it.confirm){const ok=await confirmDemo({title:it.t.replace('…',''),message:it.msg(name),okLabel:it.t.replace('…',''),danger:it.danger});if(!ok)return;}
+      toast(`${it.t.replace('…','')} · ${name} — recorded to the action log`, it.danger?'err':'ok');
     };
   });
 }
@@ -439,6 +452,22 @@ function toast(msg,kind){
   t.className='toast show'+(kind==='err'?' err':'');
   t.textContent=(kind==='err'?'🗑 ':'✓ ')+msg;
   clearTimeout(toastTimer);toastTimer=setTimeout(()=>{t.className='toast';},2400);
+}
+
+// ----- confirm dialog (mirrors the app's confirm before destructive actions) -----
+function confirmDemo({title,message,okLabel,danger}){
+  return new Promise(res=>{
+    const back=document.createElement('div');back.className='cfm-back';
+    back.innerHTML=`<div class="cfm"><div class="cfm-title">${title}</div>`+
+      `<div class="cfm-msg">${message}</div>`+
+      `<div class="cfm-actions"><button class="cfm-cancel">Cancel</button>`+
+      `<button class="cfm-ok${danger?' danger':''}">${okLabel||'Confirm'}</button></div></div>`;
+    document.querySelector('.win').appendChild(back);
+    const done=v=>{back.remove();res(v);};
+    back.querySelector('.cfm-cancel').onclick=()=>done(false);
+    back.querySelector('.cfm-ok').onclick=()=>done(true);
+    back.onclick=e=>{if(e.target===back)done(false);};
+  });
 }
 function closeDock(){document.getElementById('dock').classList.remove('open');clearInterval(logTimer);}
 
