@@ -86,6 +86,16 @@
   .st.warn{color:var(--warn)}.st.err{color:var(--err)}
   .rowbtn{background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:6px;padding:3px 8px;cursor:pointer;font:inherit;font-size:11.5px}
   .rowbtn:hover{border-color:var(--jade);color:var(--jade)}
+  .rowmenu{position:fixed;z-index:80;min-width:186px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:5px;box-shadow:0 18px 50px rgba(0,0,0,.6)}
+  .rowmenu .mi{padding:8px 10px;border-radius:7px;cursor:pointer;font-size:13px;color:var(--ink)}
+  .rowmenu .mi:hover{background:var(--panel2)}
+  .rowmenu .mi.danger{color:var(--err)} .rowmenu .mi.danger:hover{background:#241416}
+  .rowmenu .sep{height:1px;background:var(--line);margin:4px 4px}
+  .toast{position:absolute;bottom:16px;left:50%;transform:translateX(-50%) translateY(18px);opacity:0;pointer-events:none;
+    background:var(--panel);border:1px solid var(--jade-line);color:var(--ink);padding:9px 15px;border-radius:9px;font-size:13px;
+    box-shadow:0 14px 34px rgba(0,0,0,.55);transition:all .2s;z-index:90;font-family:var(--mono)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.err{border-color:#3a1c1c}
 
   /* details drawer */
   .drawer{position:absolute;top:0;right:0;bottom:0;width:340px;background:var(--panel);border-left:1px solid var(--line);
@@ -320,7 +330,7 @@ function renderTable(){
       if(i===0)return`<td class="mono" style="color:var(--ink)">${cell}</td>`;
       if(i===stIdx){const cl=statusClass(cell);return`<td><span class="st ${cl}">${cell}</span></td>`;}
       return`<td class="mono" style="color:var(--muted)">${cell}</td>`;
-    }).join('')+`<td><button class="rowbtn" onclick="event.stopPropagation();openLogs('${v[0]}')">Logs</button></td>`;
+    }).join('')+`<td style="text-align:right"><button class="rowbtn" onclick="event.stopPropagation();openRowMenu(this,'${v[0]}')">⋯</button></td>`;
     tr.onclick=()=>openDrawer(r,v,ds.cols);
     tbody.appendChild(tr);
   });
@@ -360,18 +370,75 @@ const LOGLINES=[
  ['t','GET /metrics 200 3ms'],
  ['i','cache warm complete (4211 keys)'],
 ];
-function openLogs(name){
-  document.getElementById('dockTab').textContent=`logs · ${name}`;
+const TRACE=[
+ ['i','set log level  com.acme.ledger → DEBUG (auto-reverts in 5m)'],
+ ['t','DEBUG c.a.ledger.Settlement acquiring lock tenant=acme'],
+ ['w','DEBUG lock contention — retry 1/3'],
+ ['t','DEBUG c.a.ledger.Settlement committed batch=482 (63ms)'],
+ ['i','reverting log level → INFO'],
+];
+function openLogs(name){ openDockView(name,'logs'); }
+function openDockView(name,mode){
+  const label={logs:'logs',live:'live logs',trace:'trace',shell:'shell'}[mode]||'logs';
+  document.getElementById('dockTab').textContent=`${label} · ${name}`;
   document.getElementById('dock').classList.add('open');
-  const box=document.getElementById('logs');box.innerHTML='';
-  let i=0;clearInterval(logTimer);
-  const push=()=>{const [cls,msg]=LOGLINES[i%LOGLINES.length];
-    const ts=new Date(Date.now()- (LOGLINES.length-i)*1200).toISOString().substr(11,8);
+  const box=document.getElementById('logs');box.innerHTML='';clearInterval(logTimer);
+  if(mode==='shell'){
+    box.innerHTML=
+      `<div><span class="i">root@${name}</span><span class="t">:/# </span>ls</div>`+
+      `<div class="t">app  bin  etc  lib  proc  usr  var</div>`+
+      `<div><span class="i">root@${name}</span><span class="t">:/# </span>ps -o pid,cmd</div>`+
+      `<div class="t">&nbsp;&nbsp;1 /app/server --config /etc/app/config.yaml</div>`+
+      `<div class="t">&nbsp;42 /usr/local/bin/pilot-agent proxy sidecar</div>`+
+      `<div><span class="i">root@${name}</span><span class="t">:/# </span><span style="animation:blink 1s infinite">▏</span></div>`;
+    return;
+  }
+  const lines = mode==='trace'?TRACE:LOGLINES;
+  let i=0;
+  const push=()=>{const [cls,msg]=lines[i%lines.length];
+    const ts=new Date(Date.now()-(lines.length-i)*1200).toISOString().substr(11,8);
     const div=document.createElement('div');
     div.innerHTML=`<span class="t">${ts}</span> <span class="${cls}">${cls==='e'?'ERROR':cls==='w'?'WARN ':'INFO '}</span> ${msg}`;
     box.appendChild(div);box.scrollTop=box.scrollHeight;i++;};
   for(let k=0;k<6;k++)push();
   logTimer=setInterval(push,1400);
+}
+
+// ----- row actions menu (mirrors the real app's per-kind actions) -----
+function actionsFor(kind){
+  if(kind==='Pods')return[{t:'Logs',dock:'logs'},{t:'Live logs',dock:'live'},{t:'Trace (log4j)',dock:'trace'},{t:'Shell',dock:'shell'},{sep:1},{t:'Restart'},{t:'Delete',danger:1}];
+  if(['Deployments','StatefulSets','DaemonSets'].includes(kind))return[{t:'Logs',dock:'logs'},{sep:1},{t:'Restart'},{t:'Scale…'},{t:'Delete',danger:1}];
+  if(kind==='Nodes')return[{t:'Cordon'},{t:'Drain (evict)'},{sep:1},{t:'Delete',danger:1}];
+  return[{t:'Logs',dock:'logs'},{sep:1},{t:'Delete',danger:1}];
+}
+function closeRowMenu(){const m=document.getElementById('rowmenu');if(m)m.remove();}
+function openRowMenu(btn,name){
+  closeRowMenu();
+  const items=actionsFor(activeKind);
+  const m=document.createElement('div');m.className='rowmenu';m.id='rowmenu';
+  m.innerHTML=items.map(it=>it.sep?'<div class="sep"></div>':`<div class="mi${it.danger?' danger':''}">${it.t}</div>`).join('');
+  document.body.appendChild(m);
+  const r=btn.getBoundingClientRect();
+  m.style.top=(r.bottom+4)+'px';
+  m.style.left=Math.max(8,Math.min(r.right-186,window.innerWidth-196))+'px';
+  const mis=m.querySelectorAll('.mi');
+  items.filter(it=>!it.sep).forEach((it,idx)=>{
+    mis[idx].onclick=(e)=>{e.stopPropagation();closeRowMenu();
+      if(it.dock)openDockView(name,it.dock);
+      else toast(`${it.t.replace('…','')} · ${name} — recorded to the action log`, it.danger?'err':'ok');
+    };
+  });
+}
+document.addEventListener('click',e=>{if(!e.target.closest('#rowmenu')&&!e.target.closest('.rowbtn'))closeRowMenu();});
+
+// ----- toast (stands in for the local audit log) -----
+let toastTimer=null;
+function toast(msg,kind){
+  let t=document.getElementById('toast');
+  if(!t){t=document.createElement('div');t.id='toast';document.querySelector('.win').appendChild(t);}
+  t.className='toast show'+(kind==='err'?' err':'');
+  t.textContent=(kind==='err'?'🗑 ':'✓ ')+msg;
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>{t.className='toast';},2400);
 }
 function closeDock(){document.getElementById('dock').classList.remove('open');clearInterval(logTimer);}
 

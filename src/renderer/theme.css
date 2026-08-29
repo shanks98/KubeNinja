@@ -122,9 +122,10 @@ textarea.input { resize: vertical; line-height: 1.55; }
 .rt-row:hover { background: var(--row); }
 .rt-row.deleting { opacity: .5; }
 .rt-c { padding: 7px 10px; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rt-menu { opacity: 0; color: var(--muted); font-size: 17px; line-height: 1; }
+/* Always visible (faint) so it's clear every row has actions; full on hover. */
+.rt-menu { opacity: .55; color: var(--muted); font-size: 17px; line-height: 1; cursor: pointer; }
 .rt-row:hover .rt-menu { opacity: 1; }
-.rt-menu:hover { color: var(--jade); }
+.rt-menu:hover { color: var(--jade); opacity: 1; }
 
 .menu-backdrop { position: fixed; inset: 0; z-index: 40; }
 .menu { position: fixed; z-index: 41; background: var(--panel-2); border: 1px solid var(--border-2); border-radius: 8px; padding: 4px; min-width: 190px; box-shadow: 0 12px 40px rgba(0,0,0,.5); }
