@@ -1,0 +1,18 @@
+# Normalize line endings so scripts work on every OS regardless of local git config.
+* text=auto
+
+# Unix-executed scripts MUST stay LF (CRLF breaks the shebang / commands on macOS/Linux).
+*.sh   text eol=lf
+*.mjs  text eol=lf
+
+# Windows-only scripts stay CRLF.
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# Binary assets — never touch line endings.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.ico  binary
+*.icns binary
+*.exe  binary
