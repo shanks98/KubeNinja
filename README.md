@@ -60,18 +60,52 @@ page (built automatically by CI for every tagged release):
 | **Linux** | `KubeNinja-<version>.AppImage` (portable) or the `.deb` |
 | **Windows** | `KubeNinja-<version>-setup-x64.exe` (installer) or the `portable` build |
 
+**Install from the terminal** (swap in the version you downloaded):
+
+```bash
+# macOS — mount the .dmg and copy the app to /Applications, then clear the quarantine flag
+hdiutil attach KubeNinja-0.2.0-arm64.dmg
+cp -R "/Volumes/KubeNinja 0.2.0/KubeNinja.app" /Applications/
+hdiutil detach "/Volumes/KubeNinja 0.2.0"
+xattr -dr com.apple.quarantine /Applications/KubeNinja.app   # skip the Gatekeeper prompt
+open -a KubeNinja
+```
+
+```bash
+# Linux — AppImage (portable, no install)
+chmod +x KubeNinja-0.2.0.AppImage
+./KubeNinja-0.2.0.AppImage
+
+# Linux — Debian/Ubuntu (.deb)
+sudo apt install ./KubeNinja-0.2.0.deb   # or: sudo dpkg -i KubeNinja-0.2.0.deb
+kubeninja
+```
+
+```powershell
+# Windows — run the installer (or just double-click it)
+.\KubeNinja-0.2.0-setup-x64.exe
+```
+
 The builds are **unsigned**, so on first launch you'll see a one-time OS warning:
 
-- **macOS** — right-click the app → **Open**, or **System Settings → Privacy & Security → Open Anyway** (Gatekeeper).
+- **macOS** — the `xattr` command above clears it; otherwise right-click the app → **Open**, or **System Settings → Privacy & Security → Open Anyway** (Gatekeeper).
 - **Windows** — **More info → Run anyway** (SmartScreen).
-- **Linux** — `chmod +x KubeNinja-*.AppImage` then run it.
+- **Linux** — no signing prompt; just make the AppImage executable as shown.
 
 ### Option B — build & run from source (any OS)
 
-**Windows — one-command setup.** From the KubeNinja folder, double-click **`install.cmd`** (or run
-`powershell -ExecutionPolicy Bypass -File install.ps1`). It checks for **Node.js 20+** and the
-**helm** binary, installs only what's missing (Node via `winget`), runs `npm install`, and prints the
-next command. Re-running it is safe.
+**One-command setup** (checks Node 20+, runs `npm install`, fetches the Helm binaries):
+
+```bash
+# macOS / Linux
+./install.sh
+```
+```powershell
+# Windows — double-click install.cmd, or:
+powershell -ExecutionPolicy Bypass -File install.ps1
+```
+
+Re-running is safe — it skips whatever's already installed.
 
 **Manual** (any OS):
 
