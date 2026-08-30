@@ -47,21 +47,26 @@ credentials held in memory only** (a presigned STS token; no kubeconfig on disk)
 
 ## Install & run
 
-**Requirements:** [Node.js](https://nodejs.org) **20+** and Git. (Windows for the prebuilt portable
-app; macOS/Linux are supported from source.)
+**Cross-platform:** KubeNinja runs on **Windows, macOS, and Linux**.
 
-### Option A — run the packaged Windows app (no install)
+### Option A — download a prebuilt installer (no toolchain needed)
 
-The portable build is a self-contained folder — no installer, nothing written to Program Files.
+Grab the installer for your OS from the [**Releases**](https://github.com/shanks98/KubeNinja/releases)
+page (built automatically by CI for every tagged release):
 
-1. Get the `KubeNinja-win-x64` folder (build it with Option B's `npm run pack:portable`, or copy a
-   prebuilt `dist/KubeNinja-win-x64/` folder).
-2. Double-click **`KubeNinja.exe`** inside it.
-3. It's unsigned, so Windows SmartScreen may warn on first launch — choose **More info → Run anyway**.
+| OS | Download |
+| --- | --- |
+| **macOS** (Intel & Apple Silicon) | `KubeNinja-<version>-<arch>.dmg` |
+| **Linux** | `KubeNinja-<version>.AppImage` (portable) or the `.deb` |
+| **Windows** | `KubeNinja-<version>-setup-x64.exe` (installer) or the `portable` build |
 
-The whole folder is portable: copy it to a USB stick or another machine and it runs as-is.
+The builds are **unsigned**, so on first launch you'll see a one-time OS warning:
 
-### Option B — build & run from source
+- **macOS** — right-click the app → **Open**, or **System Settings → Privacy & Security → Open Anyway** (Gatekeeper).
+- **Windows** — **More info → Run anyway** (SmartScreen).
+- **Linux** — `chmod +x KubeNinja-*.AppImage` then run it.
+
+### Option B — build & run from source (any OS)
 
 **Windows — one-command setup.** From the KubeNinja folder, double-click **`install.cmd`** (or run
 `powershell -ExecutionPolicy Bypass -File install.ps1`). It checks for **Node.js 20+** and the
@@ -78,13 +83,20 @@ npm install
 # (optional) bundle the helm binaries so Helm actions work — see "Helm" below
 node scripts/fetch-helm.mjs
 
-npm run dev            # launch with hot reload (development)
-# — or —
-npm run pack:portable  # build a standalone app → dist/KubeNinja-win-x64/KubeNinja.exe
+npm run dev   # launch with hot reload (works on Windows, macOS, and Linux)
 ```
 
-`npm run dev` opens the app with live reload. `npm run pack:portable` produces the portable folder
-from Option A.
+**Build an installer for your OS:**
+
+```bash
+node scripts/fetch-helm.mjs   # once, to bundle Helm
+npm run dist                  # → dist/  (.dmg on macOS, .AppImage/.deb on Linux, .exe on Windows)
+```
+
+`npm run dist` uses [electron-builder](https://www.electron.build) and produces the native installer
+for whatever OS you run it on — the same thing the CI release pipeline builds for all three platforms.
+On Windows only, `npm run pack:portable` is a lightweight alternative that hand-assembles a portable
+folder (it sidesteps electron-builder's Windows signing-tool cache; see the note below).
 
 > **Windows / PowerShell notes.**
 >

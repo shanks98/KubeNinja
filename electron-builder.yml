@@ -1,23 +1,67 @@
-appId: app.kubeninja.desktop
+appId: io.github.shanks98.kubeninja
 productName: KubeNinja
+copyright: Copyright © 2026 shanks98 and the KubeNinja contributors
+
 directories:
   output: dist
   buildResources: build
+
+# The main process is bundled self-contained by electron-vite, so the app is just
+# the built output — no node_modules needed at runtime.
 files:
   - out/**
   - package.json
-win:
-  target:
-    - nsis
-    - portable
+
+# No native modules to rebuild (everything is bundled), so skip the rebuild step.
+npmRebuild: false
+
+publish:
+  provider: github
+  owner: shanks98
+  repo: KubeNinja
+
+# The bundled Helm binary is placed at Resources/bin/helm(.exe); src/main/helm.ts
+# reads it from process.resourcesPath/bin. Only the matching platform/arch is shipped.
 mac:
-  target:
-    - dmg
   category: public.app-category.developer-tools
+  icon: build/icon.png
+  identity: null            # unsigned — see the release notes / SmartScreen-Gatekeeper note
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+    - target: zip
+      arch: [x64, arm64]
+  extraResources:
+    - from: resources/bin/helm-darwin-${arch}
+      to: bin/helm
+
 linux:
+  category: Development
+  maintainer: shanks98
+  icon: build/icon.png
   target:
     - AppImage
-  category: Development
-# Unsigned dev builds for now; code-signing + notarization + autoupdate come later.
-npmRebuild: true
-publish: []
+    - deb
+  extraResources:
+    - from: resources/bin/helm-linux-x64
+      to: bin/helm
+
+win:
+  icon: build/icon.png
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+  extraResources:
+    - from: resources/bin/helm-win-x64.exe
+      to: bin/helm.exe
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  artifactName: ${productName}-${version}-setup-${arch}.${ext}
+
+dmg:
+  artifactName: ${productName}-${version}-${arch}.${ext}

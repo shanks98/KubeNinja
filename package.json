@@ -4,6 +4,10 @@
   "description": "A single-user Kubernetes/EKS operations & investigation desktop IDE.",
   "author": "shanks98",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shanks98/KubeNinja.git"
+  },
   "main": "out/main/index.js",
   "type": "module",
   "scripts": {
